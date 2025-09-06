@@ -4,8 +4,8 @@ from typing import Union, List, Optional, Dict, Any
 
 import litellm
 
-from .verbose import *
-from .tools import tool_manager
+from verbose import *
+from tools import tool_manager
 
 
 @dataclass(frozen=True)
