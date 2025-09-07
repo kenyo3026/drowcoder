@@ -1,4 +1,6 @@
+import os
 import json
+import pathlib
 from dataclasses import dataclass
 from typing import Union, List, Optional, Dict, Any
 
@@ -39,11 +41,14 @@ class DrowAgent:
 
     def __init__(
         self,
+        workspace: str = None,
         tools: Optional[List[Dict[str, Any]]] = None,
         checkpoint: str = None,
         verbose_style: Union[str, VerboseStyle] = VerboseStyle.PRETTY,
         **completion_kwargs
     ):
+        self.setup_workspace(workspace)
+
         self.checkpoint = Checkpoint(checkpoint)
 
         # Apply config tools if provided
@@ -84,6 +89,21 @@ class DrowAgent:
     def init(self):
         if self.system_prompt:
             self.messages.append({"role": AgentRole.SYSTEM, "content": self.system_prompt})
+
+    def setup_workspace(self, workspace: str):
+        workspace = pathlib.Path(workspace or os.getcwd()).resolve()
+
+        if not workspace.exists():
+            raise ValueError(f"Workspace does not exist: {workspace}")
+
+        if not workspace.is_dir():
+            raise ValueError(f"Workspace is not a directory: {workspace}")
+
+        # Check I/O permission
+        if not os.access(workspace, os.R_OK | os.W_OK):
+            raise PermissionError(f"No read/write access to workspace: {workspace}")
+
+        self.workspace = workspace
 
     def call_tool(self, tool_calls:List[litellm.types.utils.ChatCompletionMessageToolCall]):
         for tool_call in tool_calls:

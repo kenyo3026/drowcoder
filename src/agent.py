@@ -11,10 +11,12 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--config", default='../configs/config.yaml')
+    parser.add_argument("-w", "--workspace", default=None, type=str)
     parser.add_argument("--checkpoint", default=None)
     args = parser.parse_args()
 
     configs = args.config
+    workspace = args.workspace
     checkpoint = args.checkpoint or \
         f'../checkpoints/{CHECKPOINT_DEFAULT_NAME()}'
 
@@ -27,6 +29,7 @@ if __name__ == '__main__':
     tools = config_morpher.fetch('tools', None)
 
     agent = DrowAgent(
+        workspace=workspace,
         tools=tools,
         checkpoint=checkpoint,
         verbose_style='pretty',
