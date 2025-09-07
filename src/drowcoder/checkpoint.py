@@ -57,54 +57,90 @@ class CheckpointTxtBase:
             raise CheckpointError(f"Failed to {mode_name} {self.path}: {e}")
 
 @dataclass
-class CheckpointJsonBase:
+class CheckpointDictBase:
     path: str
     context: Dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self):
-        self.dump(self.context)
+        self.dump()
 
-    def punch(self, context: dict):
+    def punch(self, context: Dict[str, Any]):
         self.context.update(context)
-        self.dump(self.context)
+        self.dump()
 
-    def dump(self, context: Dict[str, Any]):
-        pathlib.Path(self.path).parent.mkdir(parents=True, exist_ok=True)
-        try:
-            with open(self.path, 'w', encoding='utf-8') as f:
-                json.dump(context, f, indent=4, ensure_ascii=False)
-        except Exception as e:
-            raise CheckpointError(f"Failed to write {self.path}: {e}")
+    def dump(self):
+        pass
 
 @dataclass
-class CheckpointInfo(CheckpointJsonBase):
+class CheckpointListBase:
+    path: str
+    context: List[Any] = field(default_factory=list)
 
-    def __init__(self, path: str, context: Optional[Dict[str, Any]] = None):
-        base_context = {
+    def __post_init__(self):
+        self.dump()
+
+    def punch(self, context: Any):
+        self.context.append(context)
+        self.dump()
+
+    def dump(self):
+        pass
+
+@dataclass
+class CheckpointJsonBase:
+    def __new__(cls, path: str, context: Union[Dict[str, Any], List[Any]] = None):
+        if context is None:
+            context = []
+
+        if isinstance(context, dict):
+            instance = CheckpointDictBase(path, context)
+            instance.dump = lambda: cls._dump_json(instance)
+            return instance
+        elif isinstance(context, list):
+            instance = CheckpointListBase(path, context)
+            instance.dump = lambda: cls._dump_json(instance)
+            return instance
+        else:
+            raise ValueError(f"Unsupported context type: {type(context)}")
+
+    @staticmethod
+    def _dump_json(instance):
+        pathlib.Path(instance.path).parent.mkdir(parents=True, exist_ok=True)
+        try:
+            with open(instance.path, 'w', encoding='utf-8') as f:
+                json.dump(instance.context, f, indent=4, ensure_ascii=False)
+        except Exception as e:
+            raise CheckpointError(f"Failed to write {instance.path}: {e}")
+
+@dataclass
+class CheckpointInfo:
+    def __new__(cls, path: str, context: Dict[str, Any] = None):
+        _base_context = {
             'create_datetime': datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             **platform.uname()._asdict()
         }
-
-        if context:
-            base_context.update(context)
-
-        super().__init__(path=path, context=base_context)
+        context = {**_base_context, **(context or {})}
+        return CheckpointJsonBase(path, context)
 
 @dataclass
-class CheckpointConfig(CheckpointJsonBase):
-    pass
+class CheckpointConfig:
+    def __new__(cls, path: str, context: Union[Dict[str, Any], List[Any]] = None):
+        return CheckpointJsonBase(path, context)
 
 @dataclass
-class CheckpointLogs(CheckpointTxtBase):
-    pass
+class CheckpointLogs:
+    def __new__(cls, path: str, context: Union[Dict[str, Any], List[Any]] = None):
+        return CheckpointTxtBase(path, context)
 
 @dataclass
-class CheckpointMessages(CheckpointJsonBase):
-    pass
+class CheckpointMessages:
+    def __new__(cls, path: str, context: Union[Dict[str, Any], List[Any]] = None):
+        return CheckpointJsonBase(path, context)
 
 @dataclass
-class CheckpointRawMessages(CheckpointJsonBase):
-    pass
+class CheckpointRawMessages:
+    def __new__(cls, path: str, context: Union[Dict[str, Any], List[Any]] = None):
+        return CheckpointJsonBase(path, context)
 
 class Checkpoint:
 
@@ -137,7 +173,9 @@ class Checkpoint:
             path = self.checkpoint_root / 'raw_messages.json',
         )
 
-    def init_checkpoint(self, root:str, force_reinit_if_existence:bool=True):
+    def init_checkpoint(self, root:str=None, force_reinit_if_existence:bool=True):
+        if not root:
+            root = f'checkpoint_{datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}'
         self.checkpoint_root = pathlib.Path(root)
 
         if force_reinit_if_existence:
