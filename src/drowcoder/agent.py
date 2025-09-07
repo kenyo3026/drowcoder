@@ -45,7 +45,6 @@ class DrowAgent:
         **completion_kwargs
     ):
         self.checkpoint = Checkpoint(checkpoint)
-        self.checkpoint.info.punch({'fuck': 123})
 
         # Apply config tools if provided
         if tools:
