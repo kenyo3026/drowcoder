@@ -99,10 +99,12 @@ class CheckpointJsonBase:
         if isinstance(context, dict):
             instance = CheckpointDictBase(path, context)
             instance.dump = lambda: cls._dump_json(instance)
+            instance.dump()
             return instance
         elif isinstance(context, list):
             instance = CheckpointListBase(path, context)
             instance.dump = lambda: cls._dump_json(instance)
+            instance.dump()
             return instance
         else:
             raise ValueError(f"Unsupported context type: {type(context)}")
