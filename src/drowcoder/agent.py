@@ -4,9 +4,10 @@ from typing import Union, List, Optional, Dict, Any
 
 import litellm
 
-from checkpoint import Checkpoint
-from verbose import *
-from tools import tool_manager
+from .checkpoint import Checkpoint
+from .prompts import *
+from .tools import tool_manager
+from .verbose import *
 
 
 @dataclass(frozen=True)
@@ -143,30 +144,3 @@ class DrowAgent:
             return
         message = self.messages[-1]
         self.verboser.verbose_message(message)
-
-
-if __name__ == "__main__":
-
-    from config_morpher import ConfigMorpher
-
-    from prompts import *
-
-    DEMO_CONFIG_PATH = '../configs/config.yaml'
-    configs = DEMO_CONFIG_PATH
-    config_morpher = ConfigMorpher.from_yaml(configs)
-
-    completion_kwargs = config_morpher.morph(
-        litellm.completion,
-        start_from='models.[name=claude-4-sonnet]'
-    )
-    tools = config_morpher.fetch('tools', None)
-
-    agent = DrowAgent(
-        tools=tools,
-        verbose_style='pretty',
-        **completion_kwargs,
-    )
-    agent.init()
-    while True:
-        agent.receive()
-        agent.complete()
