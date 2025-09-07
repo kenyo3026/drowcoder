@@ -6,10 +6,14 @@ import datetime
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Literal, Optional, Union
 
+from .utils.mixin import NameWithLazyDatetime
+
 _SENTINEL = object()
 
 class CheckpointError(Exception):
     pass
+
+CHECKPOINT_DEFAULT_NAME = NameWithLazyDatetime(prefix='checkpoint')
 
 @dataclass(frozen=True)
 class TxtPunchMode:

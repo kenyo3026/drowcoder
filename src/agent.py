@@ -1,14 +1,16 @@
 import litellm
 from config_morpher import ConfigMorpher
 
-from drowcoder.prompts import *
 from drowcoder.agent import DrowAgent
+from drowcoder.checkpoint import CHECKPOINT_DEFAULT_NAME
+from drowcoder.prompts import *
 
 
 if __name__ == '__main__':
 
-    DEMO_CONFIG_PATH = '../configs/config.yaml'
-    configs = DEMO_CONFIG_PATH
+    checkpoint = f'../checkpoints/{CHECKPOINT_DEFAULT_NAME()}'
+
+    configs = '../configs/config.yaml'
     config_morpher = ConfigMorpher.from_yaml(configs)
 
     completion_kwargs = config_morpher.morph(
@@ -19,6 +21,7 @@ if __name__ == '__main__':
 
     agent = DrowAgent(
         tools=tools,
+        checkpoint=checkpoint,
         verbose_style='pretty',
         **completion_kwargs,
     )
