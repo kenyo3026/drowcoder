@@ -4,6 +4,7 @@ from typing import Union, List, Optional, Dict, Any
 
 import litellm
 
+from checkpoint import Checkpoint
 from verbose import *
 from tools import tool_manager
 
@@ -38,9 +39,13 @@ class DrowAgent:
     def __init__(
         self,
         tools: Optional[List[Dict[str, Any]]] = None,
+        checkpoint: str = None,
         verbose_style: Union[str, VerboseStyle] = VerboseStyle.PRETTY,
         **completion_kwargs
     ):
+        self.checkpoint = Checkpoint(checkpoint)
+        self.checkpoint.info.punch({'fuck': 123})
+
         # Apply config tools if provided
         if tools:
             tool_manager.apply_config_tools(tools)
@@ -100,22 +105,33 @@ class DrowAgent:
                 name = func_name,
                 content = content,
             )
+            message = tool_response.form_message()
 
-            self.messages.append(tool_response.form_message())
+            self.messages.append(message)
+            self.checkpoint.messages.punch(message)
+            self.checkpoint.raw_messages.punch(message)
             self.verbose_latest_message()
 
     def receive(self):
         while True:
-            message = input('Input a message: ').strip()
-            if message:
+            content = input('Input a message: ').strip()
+            if content:
                 break
-        self.messages.append({"role": AgentRole.USER, "content": message})
+        message = {"role": AgentRole.USER, "content": content}
+        self.messages.append(message)
+
+        self.checkpoint.messages.punch(message)
+        self.checkpoint.raw_messages.punch(message)
         self.verbose_latest_message()
 
     def complete(self):
-        message = litellm.completion(messages=self.messages, **self.completion_kwargs)
-        message = message.choices[0].message
+        response = litellm.completion(messages=self.messages, **self.completion_kwargs)
+        message = response.choices[0].message
         self.messages.append(message.__dict__)
+
+        # look out -> message.__dict__ != message.to_dict()
+        self.checkpoint.messages.punch(message.to_dict())
+        self.checkpoint.raw_messages.punch(response.to_dict())
         self.verbose_latest_message()
 
         if message.tool_calls:
