@@ -1,3 +1,4 @@
+import argparse
 import litellm
 from config_morpher import ConfigMorpher
 
@@ -8,9 +9,15 @@ from drowcoder.prompts import *
 
 if __name__ == '__main__':
 
-    checkpoint = f'../checkpoints/{CHECKPOINT_DEFAULT_NAME()}'
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-c", "--config", default='../configs/config.yaml')
+    parser.add_argument("--checkpoint", default=None)
+    args = parser.parse_args()
 
-    configs = '../configs/config.yaml'
+    configs = args.config
+    checkpoint = args.checkpoint or \
+        f'../checkpoints/{CHECKPOINT_DEFAULT_NAME()}'
+
     config_morpher = ConfigMorpher.from_yaml(configs)
 
     completion_kwargs = config_morpher.morph(
