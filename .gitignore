@@ -7,6 +7,12 @@ __pycache__
 # jupyter
 *.ipynb
 
+# Python package development
+*.egg-info/
+build/
+dist/
+*.egg
+
 # directories
 artifacts/*
 checkpoints/*
