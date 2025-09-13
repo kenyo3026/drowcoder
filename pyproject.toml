@@ -74,11 +74,9 @@ where = ["src"]
 [tool.setuptools.package-data]
 drowcoder = ["tools/*.yaml"]
 
-# Include example files in the distribution
 [tool.setuptools]
 include-package-data = true
 
-# Black 程式碼格式化設定
 [tool.black]
 line-length = 88
 target-version = ['py38']
@@ -97,14 +95,12 @@ extend-exclude = '''
 )/
 '''
 
-# isort import 排序設定
 [tool.isort]
 profile = "black"
 multi_line_output = 3
 line_length = 88
 known_first_party = ["drowcoder"]
 
-# mypy 型別檢查設定
 [tool.mypy]
 python_version = "3.8"
 warn_return_any = true
@@ -128,7 +124,6 @@ module = [
 ]
 ignore_missing_imports = true
 
-# pytest 測試設定
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
@@ -149,7 +144,6 @@ markers = [
     "unit: marks tests as unit tests",
 ]
 
-# Coverage 設定
 [tool.coverage.run]
 source = ["src"]
 branch = true
