@@ -8,37 +8,36 @@ during development and testing.
 
 import sys
 from pathlib import Path
+from dataclasses import dataclass
+from typing import Type
 
-from .main import main as main_function
+from .main import Main, MainArgs
 
 
-def main() -> int:
-    """
-    Development entry point.
-
-    Uses ./checkpoints/ as the default checkpoint directory.
-    This is intended for use during development and testing.
-    """
-    # Use local checkpoints directory for development
+def find_project_root() -> Path:
+    """Find the project root directory by looking for pyproject.toml"""
     current_dir = Path.cwd()
-
-    # Try to find the project root (where pyproject.toml exists)
     project_root = current_dir
+
     while project_root != project_root.parent:
         if (project_root / 'pyproject.toml').exists():
-            break
+            return project_root
         project_root = project_root.parent
-    else:
-        # If no pyproject.toml found, use current directory
-        project_root = current_dir
 
-    default_checkpoint_dir = project_root / 'checkpoints'
+    # If no pyproject.toml found, use current directory
+    return current_dir
 
-    return main_function(
-        default_checkpoint_dir=default_checkpoint_dir,
-        prog_name="drowcoder-dev"
-    )
+@dataclass
+class DevArgs(MainArgs):
+    config: str = str(find_project_root() / 'configs' / 'config.yaml')
+    model: str = None
+    workspace: str = None
+    checkpoint: str = None
+    checkpoint_root: str = str(find_project_root() / 'checkpoints')
+
+class DevMain(Main):
+    args: Type[DevArgs] = DevArgs
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(DevMain.run())
