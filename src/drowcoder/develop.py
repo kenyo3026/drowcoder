@@ -39,5 +39,10 @@ class DevMain(Main):
     args: Type[DevArgs] = DevArgs
 
 
+def main() -> int:
+    """CLI entry point function for setuptools console_scripts."""
+    return DevMain.run()
+
+
 if __name__ == "__main__":
-    sys.exit(DevMain.run())
+    sys.exit(main())

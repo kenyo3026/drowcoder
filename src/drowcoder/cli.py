@@ -75,5 +75,10 @@ class CliMain(Main):
     args:Type[CliArgs] = CliArgs
 
 
+def main() -> int:
+    """CLI entry point function for setuptools console_scripts."""
+    return CliMain.run()
+
+
 if __name__ == "__main__":
-    sys.exit(CliMain.run())
+    sys.exit(main())
