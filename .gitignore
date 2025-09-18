@@ -21,3 +21,6 @@ artifacts/*
 checkpoints/*
 configs/*
 scripts/*
+
+# TODO
+TODO.md
