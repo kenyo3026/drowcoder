@@ -9,9 +9,9 @@ from typing import Union
 
 @dataclass(frozen=True)
 class Platform:
-    WINDOWS: str = 'Windows'
-    DARWIN: str = 'Darwin'
-    LINUX: str = 'Linux'
+    WINDOWS : str = 'Windows'
+    DARWIN  : str = 'Darwin'
+    LINUX   : str = 'Linux'
 
     @staticmethod
     def get_default_editor():
@@ -26,9 +26,9 @@ class Platform:
 
 @dataclass(frozen=True)
 class Editor:
-    NOTEPAD: str = 'notepad'
-    VIM: str = 'vim'
-    NANO: str = 'nano'
+    NOTEPAD : str = 'notepad'
+    VIM     : str = 'vim'
+    NANO    : str = 'nano'
 
     @staticmethod
     def get_preferred():
@@ -54,9 +54,9 @@ class Editor:
 
 @dataclass(frozen=True)
 class ConfigCommand:
-    EDIT     :str='edit'
-    SHOW     :str='show'
-    VALIDATE :str='validate'
+    EDIT     :str = 'edit'
+    SHOW     :str = 'show'
+    VALIDATE :str = 'validate'
 
 class ConfigMain:
     """Configuration management class"""

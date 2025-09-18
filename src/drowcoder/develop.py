@@ -29,11 +29,11 @@ def find_project_root() -> Path:
 
 @dataclass
 class DevArgs(MainArgs):
-    config: str = str(find_project_root() / 'configs' / 'config.yaml')
-    model: str = None
-    workspace: str = None
-    checkpoint: str = None
-    checkpoint_root: str = str(find_project_root() / 'checkpoints')
+    config     : str = str(find_project_root() / 'configs' / 'config.yaml')
+    model      : str = None
+    workspace  : str = None
+    checkpoint : str = None
+    checkpoint_root : str = str(find_project_root() / 'checkpoints')
 
 class DevMain(Main):
     args: Type[DevArgs] = DevArgs
