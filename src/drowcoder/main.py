@@ -9,14 +9,15 @@ It provides the main entry point that can be used by different environments
 import argparse
 import pathlib
 import sys
-from dataclasses import dataclass, field
-from typing import Optional, Type
+from dataclasses import dataclass
+from typing import Type
 
 import litellm
 from config_morpher import ConfigMorpher
 
 from .agent import DrowAgent
 from .checkpoint import CHECKPOINT_DEFAULT_NAME
+from .config import ConfigMain, ConfigCommand
 
 
 def get_version() -> str:
@@ -29,22 +30,40 @@ def get_version() -> str:
 
 @dataclass
 class MainArgs:
+    # Primary arguments
     config     :str='./config.yaml'
     model      :str=None
     workspace  :str=None
     checkpoint :str=None
     checkpoint_root :str='./checkpoints'
 
+    # Subcommands
+    command    :str=None
+    config_action :str=None
+
     @classmethod
     def from_args(cls):
         parser = argparse.ArgumentParser()
-        parser.add_argument("-c", "--config", default=cls.config)
-        parser.add_argument("-m", "--model", default=cls.model)
-        parser.add_argument("-w", "--workspace", default=cls.workspace)
-        parser.add_argument("--checkpoint", default=cls.checkpoint)
-        parser.add_argument("--checkpoint_root", default=cls.checkpoint_root)
+
+        # Setup primary arguments
+        parser.add_argument("-c", "--config", default=cls.config, help="Path to configuration file")
+        parser.add_argument("-m", "--model", default=cls.model, help="Model to use")
+        parser.add_argument("-w", "--workspace", default=cls.workspace, help="Workspace directory")
+        parser.add_argument("--checkpoint", default=cls.checkpoint, help="Checkpoint directory")
+        parser.add_argument("--checkpoint_root", default=cls.checkpoint_root, help="Checkpoint root directory")
+
+        # Setup secondary commands
+        subparsers = parser.add_subparsers(dest='command', help='Available commands')
+
+        # Setup secondary command for config
+        parser_for_config = subparsers.add_parser('config', help='Configuration management')
+        subparsers_for_config = parser_for_config.add_subparsers(dest='config_action', help='Config actions')
+        subparsers_for_config.add_parser('edit', help='Edit configuration file')
+        subparsers_for_config.add_parser('show', help='Show current configuration')
+        subparsers_for_config.add_parser('validate', help='Validate configuration file')
+
         args = parser.parse_args()
-        return cls(**args.__dict__)
+        return cls(**{k: v for k, v in args.__dict__.items() if hasattr(cls, k)})
 
     def __post_init__(self):
         if not self.checkpoint:
@@ -63,6 +82,12 @@ class Main:
     @classmethod
     def run(cls):
         args = cls.args.from_args()
+
+        # Handle config subcommands
+        if args.command == 'config':
+            return cls.run_config(args)
+
+        # Regular execution
         config = args.config
         model = args.model
         workspace = args.workspace
@@ -110,6 +135,22 @@ class Main:
             return 1
 
         return 0
+
+    @classmethod
+    def run_config(cls, args):
+        """Handle config subcommands"""
+        config_path = args.config
+        config_action = args.config_action
+
+        if config_action == ConfigCommand.EDIT:
+            return ConfigMain.edit(config_path)
+        elif config_action == ConfigCommand.SHOW:
+            return ConfigMain.show(config_path)
+        elif config_action == ConfigCommand.VALIDATE:
+            return ConfigMain.validate(config_path)
+        else:
+            print("Usage: drowcoder config {edit|show|validate}")
+            return 1
 
 
 def main() -> int:
