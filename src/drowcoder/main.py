@@ -31,11 +31,11 @@ def get_version() -> str:
 @dataclass
 class MainArgs:
     # Primary arguments
-    config     :str='./config.yaml'
-    model      :str=None
-    workspace  :str=None
-    checkpoint :str=None
-    checkpoint_root :str='./checkpoints'
+    config     :str = './config.yaml'
+    model      :str = None
+    workspace  :str = None
+    checkpoint :str = None
+    checkpoint_root :str = './checkpoints'
 
     # Subcommands
     command    :str=None
