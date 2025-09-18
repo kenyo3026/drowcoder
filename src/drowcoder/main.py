@@ -111,5 +111,11 @@ class Main:
 
         return 0
 
+
+def main() -> int:
+    """CLI entry point function for setuptools console_scripts."""
+    return Main.run()
+
+
 if __name__ == "__main__":
-    sys.exit(Main.run())
+    sys.exit(main())
