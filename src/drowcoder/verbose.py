@@ -136,15 +136,23 @@ class PrettyMessageVerboser(BaseMessageVerboser):
             for i, tool_call in enumerate(tool_calls, 1):
                 func_name = tool_call.function.name
                 arguments = tool_call.function.arguments
-                print(f"  {i}. {color}{func_name}{self.reset_color}")
                 try:
                     args_dict = json.loads(arguments)
-                    for key, value in args_dict.items():
+                    if args_dict.__len__() == 1:
+                        key, value = next(iter(args_dict.items()))
                         if isinstance(value, str) and len(value) > self.max_arg_length:
                             value = f"{value[:self.max_arg_length]}..."
-                        print(f"     {key}: {value}")
-                except:
-                    print(f"     Raw args: {arguments}")
+                        print(f"  {i}. {color}{func_name}{self.reset_color}({key}: {value})")
+                    else:
+                        print(f"  {i}. {color}{func_name}{self.reset_color}(")
+                        for key, value in args_dict.items():
+                            if isinstance(value, str) and len(value) > self.max_arg_length:
+                                value = f"{value[:self.max_arg_length]}..."
+                            print(f"     \t{key}: {value}")
+                        print(f"     )")
+                except json.JSONDecodeError:
+                    warning_color = '\033[91m' if self.show_colors else ''
+                    print(f"  {i}. {color}{func_name}{self.reset_color}({warning_color}⚠️  Raw args: {arguments}{self.reset_color})")
 
     def _handle_general_message(self, message: Dict[str, Any], color: str) -> None:
         """Handle system and user messages"""
