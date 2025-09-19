@@ -130,6 +130,8 @@ class Main:
                     print(f"Error: {e}")
                     print("Continuing...")
 
+            # TODO: Post-processing
+
         except Exception as e:
             print(f"Failed to initialize drowcoder: {e}")
             return 1
