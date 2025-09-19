@@ -111,23 +111,47 @@ class PrettyMessageVerboser(BaseMessageVerboser):
 
     def _handle_tool_message(self, message: Dict[str, Any], color: str) -> None:
         """Handle tool response messages"""
-        print(f"{color}Tool Call ID:{self.reset_color} {message.get('tool_call_id', 'N/A')}")
-        print(f"{color}Function:{self.reset_color} {message.get('name', 'N/A')}")
-        print(f"{color}Result:{self.reset_color}")
+        tool_call_id = message.get('tool_call_id', 'N/A')
+        func_name = message.get('name', 'N/A')
+        arguments = message.get('arguments', {})
+        print(f"{color}Tool Call ID :{self.reset_color}{tool_call_id}")
 
+        # print(f"{color}Function:{self.reset_color} {message.get('name', 'N/A')}")
+        prefix_pattern = f"Function: "
+        prefix_indent = " " * prefix_pattern.__len__()
+        try:
+            if arguments.__len__() == 0:
+                print(f"{color}{prefix_pattern}{self.reset_color}{func_name}()")
+            elif arguments.__len__() == 1:
+                key, value = next(iter(arguments.items()))
+                if isinstance(value, str) and len(value) > self.max_arg_length:
+                    value = f"{value[:self.max_arg_length]}..."
+                print(f"{color}{prefix_pattern}{self.reset_color}{func_name}({key}: {value})")
+            else:
+                print(f"{color}{prefix_pattern}{self.reset_color}{func_name}(")
+                for key, value in arguments.items():
+                    if isinstance(value, str) and len(value) > self.max_arg_length:
+                        value = f"{value[:self.max_arg_length]}..."
+                    print(f"{prefix_indent}\t{key}: {value}")
+                print(f"{prefix_indent})")
+        except json.JSONDecodeError:
+            warning_color = '\033[91m' if self.show_colors else ''
+            print(f"{color}{prefix_pattern}{self.reset_color}{func_name}({warning_color}⚠️  Raw args: {arguments}{self.reset_color})")
+
+        print(f"{color}Result: {self.reset_color}")
         content = message.get('content', '')
         if len(content) > self.max_tool_result_length:
-            print(f"  {content[:self.max_tool_result_length]}...")
-            print(f"  {color}[Content truncated - {len(content)} total chars]{self.reset_color}")
+            print(f"{content[:self.max_tool_result_length]}...")
+            print(f"[Content truncated - {len(content)} total chars]")
         else:
-            print(f"  {content}")
+            print(f"{content}")
 
     def _handle_assistant_message(self, message: Dict[str, Any], color: str) -> None:
         """Handle assistant messages"""
         content = message.get('content')
         if content:
             print(f"{color}Response:{self.reset_color}")
-            print(f"  {content}")
+            print(f"{content}")
 
         # Handle tool calls
         tool_calls = message.get('tool_calls')
@@ -136,32 +160,37 @@ class PrettyMessageVerboser(BaseMessageVerboser):
             for i, tool_call in enumerate(tool_calls, 1):
                 func_name = tool_call.function.name
                 arguments = tool_call.function.arguments
+
+                prefix_pattern = f"  {i}. "
+                prefix_indent = " " * prefix_pattern.__len__()
                 try:
                     args_dict = json.loads(arguments)
-                    if args_dict.__len__() == 1:
+                    if args_dict.__len__() == 0:
+                        print(f"{prefix_pattern}{color}{func_name}{self.reset_color}()")
+                    elif args_dict.__len__() == 1:
                         key, value = next(iter(args_dict.items()))
                         if isinstance(value, str) and len(value) > self.max_arg_length:
                             value = f"{value[:self.max_arg_length]}..."
-                        print(f"  {i}. {color}{func_name}{self.reset_color}({key}: {value})")
+                        print(f"{prefix_pattern}{color}{func_name}{self.reset_color}({key}: {value})")
                     else:
-                        print(f"  {i}. {color}{func_name}{self.reset_color}(")
+                        print(f"{prefix_pattern}{color}{func_name}{self.reset_color}(")
                         for key, value in args_dict.items():
                             if isinstance(value, str) and len(value) > self.max_arg_length:
                                 value = f"{value[:self.max_arg_length]}..."
-                            print(f"     \t{key}: {value}")
-                        print(f"     )")
+                            print(f"{prefix_indent}\t{key}: {value}")
+                        print(f"{prefix_indent})")
                 except json.JSONDecodeError:
                     warning_color = '\033[91m' if self.show_colors else ''
-                    print(f"  {i}. {color}{func_name}{self.reset_color}({warning_color}⚠️  Raw args: {arguments}{self.reset_color})")
+                    print(f"{prefix_pattern}{color}{func_name}{self.reset_color}({warning_color}⚠️  Raw args: {arguments}{self.reset_color})")
 
     def _handle_general_message(self, message: Dict[str, Any], color: str) -> None:
         """Handle system and user messages"""
         content = message.get('content', '')
         if len(content) > self.max_content_length:
-            print(f"  {content[:self.max_content_length]}...")
-            print(f"  {color}[Content truncated - {len(content)} total chars]{self.reset_color}")
+            print(f"{content[:self.max_content_length]}...")
+            print(f"[Content truncated - {len(content)} total chars]")
         else:
-            print(f"  {content}")
+            print(f"{content}")
 
 
 # Factory function for convenience

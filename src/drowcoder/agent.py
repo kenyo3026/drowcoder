@@ -25,6 +25,7 @@ class ToolCallResponse:
     role         :str
     tool_call_id :str
     name         :str
+    arguments    :dict
     content      :str
 
     def form_content(self):
@@ -33,7 +34,7 @@ class ToolCallResponse:
 
     def form_message(self):
         message = self.__dict__
-        message['content'] = self.form_content()
+        # message['content'] = self.form_content()
         return message
 
 
@@ -123,6 +124,7 @@ class DrowAgent:
                 role = AgentRole.TOOL,
                 tool_call_id = tool_call.id,
                 name = func_name,
+                arguments = arguments,
                 content = content,
             )
             message = tool_response.form_message()
