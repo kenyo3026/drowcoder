@@ -1,7 +1,7 @@
 import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Union
 
 
 @dataclass(frozen=True)
@@ -119,24 +119,10 @@ class PrettyMessageVerboser(BaseMessageVerboser):
         # print(f"{color}Function:{self.reset_color} {message.get('name', 'N/A')}")
         prefix_pattern = f"Function: "
         prefix_indent = " " * prefix_pattern.__len__()
-        try:
-            if arguments.__len__() == 0:
-                print(f"{color}{prefix_pattern}{self.reset_color}{func_name}()")
-            elif arguments.__len__() == 1:
-                key, value = next(iter(arguments.items()))
-                if isinstance(value, str) and len(value) > self.max_arg_length:
-                    value = f"{value[:self.max_arg_length]}..."
-                print(f"{color}{prefix_pattern}{self.reset_color}{func_name}({key}: {value})")
-            else:
-                print(f"{color}{prefix_pattern}{self.reset_color}{func_name}(")
-                for key, value in arguments.items():
-                    if isinstance(value, str) and len(value) > self.max_arg_length:
-                        value = f"{value[:self.max_arg_length]}..."
-                    print(f"{prefix_indent}\t{key}: {value}")
-                print(f"{prefix_indent})")
-        except json.JSONDecodeError:
-            warning_color = '\033[91m' if self.show_colors else ''
-            print(f"{color}{prefix_pattern}{self.reset_color}{func_name}({warning_color}⚠️  Raw args: {arguments}{self.reset_color})")
+        prefix_pattern = f"{color}{prefix_pattern}{self.reset_color}"
+        self._handle_func_argument_formatting(
+            func_name, arguments, prefix_pattern, prefix_indent
+        )
 
         print(f"{color}Result: {self.reset_color}")
         content = message.get('content', '')
@@ -163,25 +149,9 @@ class PrettyMessageVerboser(BaseMessageVerboser):
 
                 prefix_pattern = f"  {i}. "
                 prefix_indent = " " * prefix_pattern.__len__()
-                try:
-                    args_dict = json.loads(arguments)
-                    if args_dict.__len__() == 0:
-                        print(f"{prefix_pattern}{color}{func_name}{self.reset_color}()")
-                    elif args_dict.__len__() == 1:
-                        key, value = next(iter(args_dict.items()))
-                        if isinstance(value, str) and len(value) > self.max_arg_length:
-                            value = f"{value[:self.max_arg_length]}..."
-                        print(f"{prefix_pattern}{color}{func_name}{self.reset_color}({key}: {value})")
-                    else:
-                        print(f"{prefix_pattern}{color}{func_name}{self.reset_color}(")
-                        for key, value in args_dict.items():
-                            if isinstance(value, str) and len(value) > self.max_arg_length:
-                                value = f"{value[:self.max_arg_length]}..."
-                            print(f"{prefix_indent}\t{key}: {value}")
-                        print(f"{prefix_indent})")
-                except json.JSONDecodeError:
-                    warning_color = '\033[91m' if self.show_colors else ''
-                    print(f"{prefix_pattern}{color}{func_name}{self.reset_color}({warning_color}⚠️  Raw args: {arguments}{self.reset_color})")
+                self._handle_func_argument_formatting(
+                    func_name, arguments, prefix_pattern, prefix_indent
+                )
 
     def _handle_general_message(self, message: Dict[str, Any], color: str) -> None:
         """Handle system and user messages"""
@@ -191,6 +161,34 @@ class PrettyMessageVerboser(BaseMessageVerboser):
             print(f"[Content truncated - {len(content)} total chars]")
         else:
             print(f"{content}")
+
+    def _handle_func_argument_formatting(
+        self,
+        func_name: str,
+        arguments: Union[str, dict],
+        prefix_pattern: str,
+        prefix_indent: str,
+    ):
+        try:
+            if isinstance(arguments, str):
+                arguments = json.loads(arguments)
+            if arguments.__len__() == 0:
+                print(f"{prefix_pattern}{func_name}()")
+            elif arguments.__len__() == 1:
+                key, value = next(iter(arguments.items()))
+                if isinstance(value, str) and len(value) > self.max_arg_length:
+                    value = f"{value[:self.max_arg_length]}..."
+                print(f"{prefix_pattern}{func_name}({key}: {value})")
+            else:
+                print(f"{prefix_pattern}{func_name}(")
+                for key, value in arguments.items():
+                    if isinstance(value, str) and len(value) > self.max_arg_length:
+                        value = f"{value[:self.max_arg_length]}..."
+                    print(f"{prefix_indent}\t{key}: {value}")
+                print(f"{prefix_indent})")
+        except json.JSONDecodeError:
+            warning_color = '\033[91m' if self.show_colors else ''
+            print(f"{prefix_pattern}{func_name}({warning_color}⚠️  Raw args: {arguments}{self.reset_color})")
 
 
 # Factory function for convenience
