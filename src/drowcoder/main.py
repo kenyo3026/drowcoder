@@ -31,10 +31,12 @@ def get_version() -> str:
 @dataclass
 class MainArgs:
     # Primary arguments
-    config     :str = './config.yaml'
-    model      :str = None
-    workspace  :str = None
-    checkpoint :str = None
+    query       :str  = None
+    config      :str  = './config.yaml'
+    model       :str  = None
+    interactive :bool = False
+    workspace   :str  = None
+    checkpoint  :str  = None
     checkpoint_root :str = './checkpoints'
 
     # Subcommands
@@ -46,8 +48,10 @@ class MainArgs:
         parser = argparse.ArgumentParser()
 
         # Setup primary arguments
+        parser.add_argument("-q", "--query", default=cls.query, help="Headless mode: process query directly, otherwise interactive mode")
         parser.add_argument("-c", "--config", default=cls.config, help="Path to configuration file")
         parser.add_argument("-m", "--model", default=cls.model, help="Model to use")
+        parser.add_argument("-i", "--interactive", action="store_true", help="Run in interactive mode")
         parser.add_argument("-w", "--workspace", default=cls.workspace, help="Workspace directory")
         parser.add_argument("--checkpoint", default=cls.checkpoint, help="Checkpoint directory")
         parser.add_argument("--checkpoint_root", default=cls.checkpoint_root, help="Checkpoint root directory")
@@ -88,8 +92,10 @@ class Main:
             return cls.run_config(args)
 
         # Regular execution
+        query = args.query
         config = args.config
         model = args.model
+        interactive = args.interactive if query else True
         workspace = args.workspace
         checkpoint = args.checkpoint
 
@@ -118,17 +124,23 @@ class Main:
             print("Type your messages to interact with the agent.")
             print("Press Ctrl+C to exit.\n")
 
-            # Main interaction loop
-            while True:
-                try:
-                    agent.receive()
-                    agent.complete()
-                except KeyboardInterrupt:
-                    print("\n\nExiting DrowCoder. Goodbye!")
-                    break
-                except Exception as e:
-                    print(f"Error: {e}")
-                    print("Continuing...")
+            if query and not interactive:
+                # Headless mode: process query once and exit
+                agent.receive(query)
+                agent.complete()
+            else:
+                # Interactive/Hybrid mode: continuous loop with optional initial query
+                while True:
+                    try:
+                        agent.receive(query)
+                        agent.complete()
+                        query = None  # Clear query to switch to interactive mode
+                    except KeyboardInterrupt:
+                        print("\n\nExiting DrowCoder. Goodbye!")
+                        break
+                    except Exception as e:
+                        print(f"Error: {e}")
+                        print("Continuing...")
 
             # TODO: Post-processing
 
