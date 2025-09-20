@@ -150,8 +150,10 @@ class DrowAgent:
         self.checkpoint.raw_messages.punch(message)
         self.verbose_latest_message()
 
-    def complete(self):
-        response = litellm.completion(messages=self.messages, **self.completion_kwargs)
+    def complete(self, **completion_kwargs):
+        completion_kwargs = {**self.completion_kwargs, **completion_kwargs}
+
+        response = litellm.completion(messages=self.messages, **completion_kwargs)
         message = response.choices[0].message
         self.messages.append(message.__dict__)
 
