@@ -5,9 +5,9 @@ from config_morpher import ConfigMorpher
 
 
 @dataclass(frozen=True)
-class ModelRole:
-    chatcompletions :str = 'chat-completions'
-    postcompletions :str = 'post-completions'
+class ModelRoleType:
+    chatcompletions :str = 'chatcompletions'
+    postcompletions :str = 'postcompletions'
 
 
 class ModelDispatcher:
@@ -20,18 +20,19 @@ class ModelDispatcher:
 
     def dispatch(self, morph:bool=True):
         for model in self.models:
-            role_dict = {}
             if 'roles' in model:
                 for i in range(len(model['roles'])):
                     if isinstance(model['roles'][i], str):
-                        role_dict[model['roles'][i]] = None
+                        role, task = model['roles'][i], None
                     elif isinstance(model['roles'][i], dict):
-                        role_dict.update(model['roles'][i])
+                        role, task = next(iter(model['roles'][i].items()))
 
-                if ModelRole.chatcompletions in role_dict:
-                    self.for_chatcompletions['models'].append(model)
-                if ModelRole.postcompletions in role_dict:
-                    self.for_postcompletions['models'].append(model)
+                    _model = {**model} # shallow copy
+                    _model['roles'] = {role:task}
+                    if role == ModelRoleType.chatcompletions:
+                        self.for_chatcompletions['models'].append(_model)
+                    elif role == ModelRoleType.postcompletions:
+                        self.for_postcompletions['models'].append(_model)
 
         if morph:
             self.for_chatcompletions = ConfigMorpher(self.for_chatcompletions)

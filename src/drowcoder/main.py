@@ -110,11 +110,17 @@ class Main:
             # TODO enable to start_from models[name={model} or model={model}]
             start_from=f'models[model={model}]' if model else f'models[0]',
         )
-        postcompletion_kwargs = models.for_postcompletions.morph(
-            litellm.completion,
-            # TODO enable to start_from models[name={model} or model={model}]
-            start_from=f'models[model={model}]' if model else f'models[0]',
-        )
+
+        postcompletion_kwargs, postcompletion_task = {}, None
+        if models.for_postcompletions:
+            postcompletion_kwargs = models.for_postcompletions.morph(
+                litellm.completion,
+                # TODO enable to start_from models[name={model} or model={model}]
+                start_from=f'models[model={model}]' if model else f'models[0]',
+            )
+            postcompletion_task = models.for_postcompletions.fetch(
+                (f'models[model={model}]' if model else f'models[0]') + '.roles.postcompletions'
+            )
 
         tools = config_morpher.fetch('tools', None)
 
@@ -137,6 +143,16 @@ class Main:
                 # Headless mode: process query once and exit
                 agent.receive(query)
                 agent.complete()
+
+                # TODO: Support independent agent instances for post-completion tasks in the future works
+                #       - isolated context (no message inheritance from completion)
+                if postcompletion_task:
+                    print(f"🔄 Post-completion: {postcompletion_task[:50]}{'...' if len(postcompletion_task) > 50 else ''}")
+                    try:
+                        agent.receive(postcompletion_task)
+                        agent.complete(**postcompletion_kwargs)
+                    except Exception as e:
+                        print(f"Post-completion failed: {e}")
             else:
                 # Interactive/Hybrid mode: continuous loop with optional initial query
                 while True:
@@ -144,14 +160,23 @@ class Main:
                         agent.receive(query)
                         agent.complete()
                         query = None  # Clear query to switch to interactive mode
+
+                        # TODO: Support independent agent instances for post-completion tasks in the future works
+                        #       - isolated context (no message inheritance from completion)
+                        if postcompletion_task:
+                            print(f"🔄 Post-completion: {postcompletion_task[:50]}{'...' if len(postcompletion_task) > 50 else ''}")
+                            try:
+                                agent.receive(postcompletion_task)
+                                agent.complete(**postcompletion_kwargs)
+                            except Exception as e:
+                                print(f"Post-completion failed: {e}")
+
                     except KeyboardInterrupt:
                         print("\n\nExiting DrowCoder. Goodbye!")
                         break
                     except Exception as e:
                         print(f"Error: {e}")
                         print("Continuing...")
-
-            # TODO: Post-processing/Post-completions
 
         except Exception as e:
             print(f"Failed to initialize drowcoder: {e}")
