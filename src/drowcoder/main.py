@@ -18,6 +18,7 @@ from config_morpher import ConfigMorpher
 from .agent import DrowAgent
 from .checkpoint import CHECKPOINT_DEFAULT_NAME
 from .config import ConfigMain, ConfigCommand
+from .model import ModelDispatcher
 
 
 def get_version() -> str:
@@ -102,11 +103,19 @@ class Main:
         # Load configuration
         config_morpher = ConfigMorpher.from_yaml(config)
 
-        completion_kwargs = config_morpher.morph(
+        models = config_morpher.fetch('models')
+        models = ModelDispatcher(models, morph=True)
+        completion_kwargs = models.for_chatcompletions.morph(
             litellm.completion,
             # TODO enable to start_from models[name={model} or model={model}]
             start_from=f'models[model={model}]' if model else f'models[0]',
         )
+        postcompletion_kwargs = models.for_postcompletions.morph(
+            litellm.completion,
+            # TODO enable to start_from models[name={model} or model={model}]
+            start_from=f'models[model={model}]' if model else f'models[0]',
+        )
+
         tools = config_morpher.fetch('tools', None)
 
         try:
@@ -142,7 +151,7 @@ class Main:
                         print(f"Error: {e}")
                         print("Continuing...")
 
-            # TODO: Post-processing
+            # TODO: Post-processing/Post-completions
 
         except Exception as e:
             print(f"Failed to initialize drowcoder: {e}")
