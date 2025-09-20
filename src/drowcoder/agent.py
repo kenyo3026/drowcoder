@@ -134,11 +134,15 @@ class DrowAgent:
             self.checkpoint.raw_messages.punch(message)
             self.verbose_latest_message()
 
-    def receive(self):
-        while True:
-            content = input('Input a message: ').strip()
-            if content:
-                break
+    def receive(self, content:str=None):
+        if not content:
+            while True:
+                content = input('Input a message: ').strip()
+                if content: break
+
+        if not isinstance(content, str):
+            raise TypeError(f"Expected string for content, got {type(content).__name__} instead")
+
         message = {"role": AgentRole.USER, "content": content}
         self.messages.append(message)
 
