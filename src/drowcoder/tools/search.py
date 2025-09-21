@@ -7,6 +7,7 @@ from typing import List
 from path_tree_graph import PathTree, PathTreeNode, TreeGraph
 
 from .utils.ext import EXT_PATTERNS_FOR_BASE_EXCLUDE
+from .utils.ignore import IgnoreController
 
 
 @dataclass
@@ -235,6 +236,8 @@ def search_file(
     as_text: bool = True,
     as_graph: bool = True,
     only_filename: bool = False,
+    enable_ignore: bool = True,
+    shell_policy: str = "auto",
 ):
     """
     Search for content patterns in files within specified path and workspace constraints.
@@ -249,6 +252,8 @@ def search_file(
         as_text (bool): Return formatted text or raw results when as_graph=False
         as_graph (bool): Use tree graph format for displaying results (takes precedence over as_text)
         only_filename (bool): If True, only return filename and match count; if False, return detailed content
+        enable_ignore (bool): Enable .drowignore file filtering. When true, files matching patterns in .drowignore will be excluded from search
+        shell_policy (str): Shell policy for command parsing (auto/unix/powershell)
 
     Returns:
         str or list or PathTreeForSearchTool: 
@@ -271,9 +276,31 @@ def search_file(
     if not enable_search_outside and not path_is_within_cwd:
         raise ValueError(f"Path '{path}' is outside workspace '{cwd}' and external search is disabled")
 
+    # Initialize ignore controller if needed
+    controller = None
+    if enable_ignore:
+        controller = IgnoreController(cwd, shell=shell_policy)
+        controller.load()
+
+    def is_file_ignored(file_path_obj) -> bool:
+        """Check if a file is ignored by .drowignore patterns"""
+        if not controller:
+            return False
+        try:
+            rel_path = os.path.relpath(str(file_path_obj), cwd)
+            return not controller.validate_access(rel_path)
+        except Exception:
+            # If path processing fails, conservatively allow the file
+            return False
+
     # Determine files to search
     if path.is_file():
-        files_to_search = [str(path)]
+        # Check single file against ignore patterns
+        if is_file_ignored(path):
+            files_to_search = []
+        else:
+            files_to_search = [str(path)]
+
     elif path.is_dir():
         # Use Path rglob with smart exclusion patterns
         base_path = Path(path)
@@ -295,6 +322,10 @@ def search_file(
 
             # Quick filename exclusion check
             if any(file_path.name.endswith(pattern) for pattern in file_patterns):
+                continue
+
+            # Check .drowignore patterns
+            if is_file_ignored(file_path):
                 continue
 
             files_to_search.append(str(file_path))
