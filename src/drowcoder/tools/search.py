@@ -266,6 +266,8 @@ def search_file(
     cwd = Path(cwd or os.getcwd()).expanduser().resolve()
     if not cwd.exists():
         raise FileNotFoundError(f"Working directory does not exist: {cwd}")
+    if not cwd.is_dir():
+        raise ValueError(f"Working directory is not a directory: {cwd}")
 
     # Handle path
     path = Path(path).expanduser().resolve()
