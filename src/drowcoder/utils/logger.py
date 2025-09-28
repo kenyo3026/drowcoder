@@ -1,44 +1,104 @@
 import logging
 import sys
 import os
-
-from typing import Union, Literal
+from typing import Union, Literal, Optional
+from rich.logging import RichHandler
 
 
 LogLevel = Union[Literal[10, 20, 30, 40, 50], int]
 
-def enable_default_logger(
-    level: LogLevel = logging.INFO,
-    directory: str = None,
-    name: str = None,
-    reinit: bool = True
-):
-    """Set the default logger handler for the package.
 
-    Will set the root handlers to empty list, prevent duplicate handlers added
-    by other packages causing duplicate logging messages.
-    """
-    logger = logging.getLogger(name or __name__)
-    
-    if any(not isinstance(handler, logging.NullHandler)
-           for handler in logger.handlers):
+class DefaultLogger:
+    """Default logger with file and stream handlers."""
+
+    def __init__(self, level: LogLevel = logging.INFO, directory: Optional[str] = None,
+                 name: Optional[str] = None, reinit: bool = True):
+        self.level = level
+        self.directory = directory
+        self.name = name
+        self.reinit = reinit
+
+    def setup(self) -> logging.Logger:
+        """Setup logger with default configuration."""
+        # Create directory if needed
+        if self.directory and not os.path.exists(self.directory):
+            os.makedirs(self.directory)
+
+        logger = logging.getLogger(self.name or __name__)
+
+        # Skip if already configured and reinit=False
+        if not self.reinit and logger.handlers:
+            return logger
+
+        # Clear existing handlers if reinit=True
+        if self.reinit:
+            logger.handlers.clear()
+
+        logger.setLevel(self.level)
+
+        # Add handlers
+        self.add_handlers(logger)
+
         return logger
 
-    logger.setLevel(level)
-    formatter = logging.Formatter(fmt='%(asctime)s [%(levelname)5s] %(message)s',
-                                  datefmt='%H:%M:%S')
+    def add_handlers(self, logger: logging.Logger) -> None:
+        """Add default handlers."""
+        formatter = logging.Formatter(
+            fmt='%(asctime)s [%(levelname)5s] %(message)s',
+            datefmt='%H:%M:%S'
+        )
 
-    if directory:
-        if os.path.exists(directory) and reinit:
-            os.rmdir(directory)
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-        file_handler = logging.FileHandler(os.path.join(directory, 'logging.log'), encoding='utf8')
-        file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
+        # Add file handler
+        if self.directory:
+            file_handler = logging.FileHandler(
+                os.path.join(self.directory, 'logging.log'),
+                encoding='utf8'
+            )
+            file_handler.setFormatter(formatter)
+            logger.addHandler(file_handler)
 
-    stream_handler = logging.StreamHandler(sys.stderr)
-    stream_handler.setFormatter(formatter)
-    logger.addHandler(stream_handler)
+        # Add stream handler
+        stream_handler = logging.StreamHandler(sys.stderr)
+        stream_handler.setFormatter(formatter)
+        logger.addHandler(stream_handler)
 
-    return logger
+
+class RichLogger(DefaultLogger):
+    """Rich logger that extends default logger with RichHandler."""
+
+    def __init__(self, level: LogLevel = logging.INFO, directory: Optional[str] = None,
+                 name: Optional[str] = None, reinit: bool = True, rich_tracebacks: bool = True):
+        super().__init__(level, directory, name, reinit)
+        self.rich_tracebacks = rich_tracebacks
+
+    def add_handlers(self, logger: logging.Logger) -> None:
+        """Add rich console handler and file handler."""
+        # Add rich console handler (replaces stream handler)
+        rich_handler = RichHandler(rich_tracebacks=self.rich_tracebacks)
+        logger.addHandler(rich_handler)
+
+        # Add file handler (same as parent)
+        if self.directory:
+            formatter = logging.Formatter(
+                fmt='%(asctime)s [%(levelname)5s] %(message)s',
+                datefmt='%H:%M:%S'
+            )
+            file_handler = logging.FileHandler(
+                os.path.join(self.directory, 'logging.log'),
+                encoding='utf8'
+            )
+            file_handler.setFormatter(formatter)
+            logger.addHandler(file_handler)
+
+
+def enable_default_logger(level: LogLevel = logging.INFO, directory: Optional[str] = None,
+                         name: Optional[str] = None, reinit: bool = True) -> logging.Logger:
+    """Create default logger."""
+    return DefaultLogger(level, directory, name, reinit).setup()
+
+
+def enable_rich_logger(level: LogLevel = logging.INFO, directory: Optional[str] = None,
+                      name: Optional[str] = None, reinit: bool = True,
+                      rich_tracebacks: bool = True) -> logging.Logger:
+    """Create rich logger."""
+    return RichLogger(level, directory, name, reinit, rich_tracebacks).setup()
