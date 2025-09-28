@@ -44,13 +44,15 @@ class DrowAgent:
         self,
         workspace: str = None,
         tools: Optional[List[Dict[str, Any]]] = None,
-        checkpoint: str = None,
+        checkpoint: Union[str, Checkpoint] = None,
         verbose_style: Union[str, VerboseStyle] = VerboseStyle.PRETTY,
         **completion_kwargs
     ):
         self.setup_workspace(workspace)
 
-        self.checkpoint = Checkpoint(checkpoint)
+        self.checkpoint = checkpoint
+        if isinstance(self.checkpoint, str) or self.checkpoint is None:
+            self.checkpoint = Checkpoint(self.checkpoint)
 
         # Apply config tools if provided
         if tools:
