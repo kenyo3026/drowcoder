@@ -20,7 +20,11 @@ dist/
 artifacts/*
 checkpoints/*
 configs/*
+logs/*
 scripts/*
+
+# test files
+test_*.py
 
 # TODO
 TODO.md
