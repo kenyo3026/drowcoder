@@ -16,9 +16,10 @@ import litellm
 from config_morpher import ConfigMorpher
 
 from .agent import DrowAgent
-from .checkpoint import CHECKPOINT_DEFAULT_NAME
+from .checkpoint import Checkpoint, CHECKPOINT_DEFAULT_NAME
 from .config import ConfigMain, ConfigCommand
 from .model import ModelDispatcher
+from .utils.logger import enable_rich_logger
 
 
 def get_version() -> str:
@@ -100,6 +101,11 @@ class Main:
         workspace = args.workspace
         checkpoint = args.checkpoint
 
+        checkpoint = Checkpoint(checkpoint)
+
+        logger_path = checkpoint.checkpoint_root / 'logs'
+        logger = enable_rich_logger(directory=logger_path)
+
         # Load configuration
         config_morpher = ConfigMorpher.from_yaml(config)
 
@@ -135,9 +141,9 @@ class Main:
 
             agent.init()
 
-            print("DrowCoder AI coding assistant started!")
-            print("Type your messages to interact with the agent.")
-            print("Press Ctrl+C to exit.\n")
+            logger.info("DrowCoder AI coding assistant started!")
+            logger.info("Type your messages to interact with the agent.")
+            logger.info("Press Ctrl+C to exit.\n")
 
             if query and not interactive:
                 # Headless mode: process query once and exit
@@ -147,12 +153,12 @@ class Main:
                 # TODO: Support independent agent instances for post-completion tasks in the future works
                 #       - isolated context (no message inheritance from completion)
                 if postcompletion_task:
-                    print(f"🔄 Post-completion: {postcompletion_task[:50]}{'...' if len(postcompletion_task) > 50 else ''}")
+                    logger.info(f"🔄 Post-completion: {postcompletion_task[:50]}{'...' if len(postcompletion_task) > 50 else ''}")
                     try:
                         agent.receive(postcompletion_task)
                         agent.complete(**postcompletion_kwargs)
                     except Exception as e:
-                        print(f"Post-completion failed: {e}")
+                        logger.error(f"Post-completion failed: {e}")
             else:
                 # Interactive/Hybrid mode: continuous loop with optional initial query
                 while True:
@@ -164,22 +170,22 @@ class Main:
                         # TODO: Support independent agent instances for post-completion tasks in the future works
                         #       - isolated context (no message inheritance from completion)
                         if postcompletion_task:
-                            print(f"🔄 Post-completion: {postcompletion_task[:50]}{'...' if len(postcompletion_task) > 50 else ''}")
+                            logger.info(f"🔄 Post-completion: {postcompletion_task[:50]}{'...' if len(postcompletion_task) > 50 else ''}")
                             try:
                                 agent.receive(postcompletion_task)
                                 agent.complete(**postcompletion_kwargs)
                             except Exception as e:
-                                print(f"Post-completion failed: {e}")
+                                logger.error(f"Post-completion failed: {e}")
 
                     except KeyboardInterrupt:
-                        print("\n\nExiting DrowCoder. Goodbye!")
+                        logger.info("\n\nExiting DrowCoder. Goodbye!")
                         break
                     except Exception as e:
-                        print(f"Error: {e}")
-                        print("Continuing...")
+                        logger.error(f"Error: {e}")
+                        logger.info("Continuing...")
 
         except Exception as e:
-            print(f"Failed to initialize drowcoder: {e}")
+            logger.error(f"Failed to initialize drowcoder: {e}")
             return 1
 
         return 0
@@ -197,6 +203,7 @@ class Main:
         elif config_action == ConfigCommand.VALIDATE:
             return ConfigMain.validate(config_path)
         else:
+            # Note: No logger available in config subcommands, fallback to print
             print("Usage: drowcoder config {edit|show|validate}")
             return 1
 
