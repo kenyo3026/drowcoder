@@ -1,6 +1,7 @@
 import logging
 import sys
 import os
+import pathlib
 from typing import Union, Literal, Optional
 from rich.logging import RichHandler
 
@@ -14,13 +15,13 @@ class DefaultLogger:
     def __init__(
         self,
         level     : LogLevel = logging.INFO,
-        directory : Optional[str] = None,
+        directory : Union[str, pathlib.Path] = None,
         name      : Optional[str] = None,
         reinit    : bool = True,
         file_open_mode : str = 'a',
     ):
         self.level = level
-        self.directory = directory
+        self.directory = pathlib.Path(directory)
         self.name = name
         self.reinit = reinit
         self.file_open_mode = 'w' if reinit else file_open_mode
@@ -58,7 +59,7 @@ class DefaultLogger:
         # Add file handler
         if self.directory:
             file_handler = logging.FileHandler(
-                os.path.join(self.directory, 'logging.log'),
+                self.directory / 'logging.log',
                 mode=self.file_open_mode,
                 encoding='utf8',
             )
@@ -77,7 +78,7 @@ class RichLogger(DefaultLogger):
     def __init__(
         self,
         level     : LogLevel = logging.INFO,
-        directory : Optional[str] = None,
+        directory : Union[str, pathlib.Path] = None,
         name      : Optional[str] = None,
         reinit    : bool = True,
         file_open_mode  : str = 'a',
@@ -99,7 +100,7 @@ class RichLogger(DefaultLogger):
                 datefmt='%H:%M:%S'
             )
             file_handler = logging.FileHandler(
-                os.path.join(self.directory, 'logging.log'),
+                self.directory / 'logging.log',
                 mode=self.file_open_mode,
                 encoding='utf8',
             )
@@ -109,7 +110,7 @@ class RichLogger(DefaultLogger):
 
 def enable_default_logger(
     level     : LogLevel = logging.INFO,
-    directory : Optional[str] = None,
+    directory : Union[str, pathlib.Path] = None,
     name      : Optional[str] = None,
     reinit    : bool = True,
     file_open_mode : str = 'a',
@@ -120,7 +121,7 @@ def enable_default_logger(
 
 def enable_rich_logger(
     level     : LogLevel = logging.INFO,
-    directory : Optional[str] = None,
+    directory : Union[str, pathlib.Path] = None,
     name      : Optional[str] = None,
     reinit    : bool = True,
     file_open_mode  : str = 'a',
