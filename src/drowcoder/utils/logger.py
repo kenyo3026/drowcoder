@@ -11,12 +11,19 @@ LogLevel = Union[Literal[10, 20, 30, 40, 50], int]
 class DefaultLogger:
     """Default logger with file and stream handlers."""
 
-    def __init__(self, level: LogLevel = logging.INFO, directory: Optional[str] = None,
-                 name: Optional[str] = None, reinit: bool = True):
+    def __init__(
+        self,
+        level     : LogLevel = logging.INFO,
+        directory : Optional[str] = None,
+        name      : Optional[str] = None,
+        reinit    : bool = True,
+        file_open_mode : str = 'a',
+    ):
         self.level = level
         self.directory = directory
         self.name = name
         self.reinit = reinit
+        self.file_open_mode = 'w' if reinit else file_open_mode
 
     def setup(self) -> logging.Logger:
         """Setup logger with default configuration."""
@@ -52,7 +59,8 @@ class DefaultLogger:
         if self.directory:
             file_handler = logging.FileHandler(
                 os.path.join(self.directory, 'logging.log'),
-                encoding='utf8'
+                mode=self.file_open_mode,
+                encoding='utf8',
             )
             file_handler.setFormatter(formatter)
             logger.addHandler(file_handler)
@@ -66,9 +74,16 @@ class DefaultLogger:
 class RichLogger(DefaultLogger):
     """Rich logger that extends default logger with RichHandler."""
 
-    def __init__(self, level: LogLevel = logging.INFO, directory: Optional[str] = None,
-                 name: Optional[str] = None, reinit: bool = True, rich_tracebacks: bool = True):
-        super().__init__(level, directory, name, reinit)
+    def __init__(
+        self,
+        level     : LogLevel = logging.INFO,
+        directory : Optional[str] = None,
+        name      : Optional[str] = None,
+        reinit    : bool = True,
+        file_open_mode  : str = 'a',
+        rich_tracebacks : bool = True,
+    ):
+        super().__init__(level, directory, name, reinit, file_open_mode)
         self.rich_tracebacks = rich_tracebacks
 
     def add_handlers(self, logger: logging.Logger) -> None:
@@ -85,20 +100,31 @@ class RichLogger(DefaultLogger):
             )
             file_handler = logging.FileHandler(
                 os.path.join(self.directory, 'logging.log'),
-                encoding='utf8'
+                mode=self.file_open_mode,
+                encoding='utf8',
             )
             file_handler.setFormatter(formatter)
             logger.addHandler(file_handler)
 
 
-def enable_default_logger(level: LogLevel = logging.INFO, directory: Optional[str] = None,
-                         name: Optional[str] = None, reinit: bool = True) -> logging.Logger:
+def enable_default_logger(
+    level     : LogLevel = logging.INFO,
+    directory : Optional[str] = None,
+    name      : Optional[str] = None,
+    reinit    : bool = True,
+    file_open_mode : str = 'a',
+) -> logging.Logger:
     """Create default logger."""
-    return DefaultLogger(level, directory, name, reinit).setup()
+    return DefaultLogger(level, directory, name, reinit, file_open_mode).setup()
 
 
-def enable_rich_logger(level: LogLevel = logging.INFO, directory: Optional[str] = None,
-                      name: Optional[str] = None, reinit: bool = True,
-                      rich_tracebacks: bool = True) -> logging.Logger:
+def enable_rich_logger(
+    level     : LogLevel = logging.INFO,
+    directory : Optional[str] = None,
+    name      : Optional[str] = None,
+    reinit    : bool = True,
+    file_open_mode  : str = 'a',
+    rich_tracebacks : bool = True,
+) -> logging.Logger:
     """Create rich logger."""
-    return RichLogger(level, directory, name, reinit, rich_tracebacks).setup()
+    return RichLogger(level, directory, name, reinit, file_open_mode, rich_tracebacks).setup()
