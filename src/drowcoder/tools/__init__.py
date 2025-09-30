@@ -12,6 +12,7 @@ from .search_and_replace import *
 from .attempt_completion import *
 from .write import *
 from .execute import *
+from .todo import *
 
 
 @dataclass
@@ -43,6 +44,7 @@ class ToolManager:
             'search_and_replace.yaml',
             'search.yaml',
             'write.yaml',
+            'todo.yaml',
         ]
 
         # Store all tool configurations
