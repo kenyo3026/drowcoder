@@ -146,6 +146,11 @@ class CheckpointRawMessages:
     def __new__(cls, path: str, context: Union[Dict[str, Any], List[Any]] = None):
         return CheckpointJsonBase(path, context)
 
+@dataclass
+class CheckpointToDosList:
+    def __new__(cls, path: str, context: Union[Dict[str, Any], List[Any]] = None):
+        return CheckpointJsonBase(path, context)
+
 class Checkpoint:
 
     def __init__(
@@ -175,6 +180,10 @@ class Checkpoint:
 
         self.raw_messages = CheckpointRawMessages(
             path = self.checkpoint_root / 'raw_messages.json',
+        )
+
+        self.todos = CheckpointToDosList(
+            path = self.checkpoint_root / 'todos.json',
         )
 
     def init_checkpoint(self, root:str=None, force_reinit_if_existence:bool=True):
@@ -207,6 +216,9 @@ class Checkpoint:
 
     def punch_raw_message(self, *args, **kwargs):
         self.raw_messages.punch(*args, **kwargs)
+
+    def punch_todos(self, *args, **kwargs):
+        self.todos.punch(*args, **kwargs)
 
     def __enter__(self):
         return self

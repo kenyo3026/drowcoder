@@ -1,0 +1,47 @@
+tools:
+  - type: function
+    function:
+      name: update_todos
+      description: |
+        Parse TODO items from text and optionally save to JSON file.
+        Supports multiple TODO formats including [ ], [], [~], [X] for different task states.
+        Can return results as dictionaries or dataclass objects, with automatic unique ID generation.
+      parameters:
+        type: object
+        properties:
+          todos_str:
+            type: string
+            description: |
+              Multi-line string containing TODO items in the following supported formats.
+              Use ONLY the format styles shown in ```EXAMPLE``` below:
+              ```
+              [ ] Design shopping cart structure
+              [] Implement add product feature
+              [~] Working on delete feature
+              [X] Complete user authentication
+              ```
+              Each line should contain one TODO item in the exact format shown above.
+        required:
+          - todos_str
+  - type: function
+    function:
+      name: get_todos
+      description: |
+        Load and retrieve TODO list from a JSON file.
+        Reads previously saved TODO items with their status, content, and unique IDs.
+  #     parameters:
+  #       type: object
+  #       properties:
+  #         checkpoint_path:
+  #           type: string
+  #           description: |
+  #             Path to the TODO JSON file to load from.
+  #             Must be a valid file path containing TODO data saved by update_todos function.
+  #       required:
+  #         - checkpoint_path
+  # NOTE: get_todos function is intentionally commented out from tool configuration
+  # DESIGN DECISION: The get_todos function requires checkpoint_path as a mandatory parameter,
+  # but we want the system to automatically provide this path rather than exposing it to users.
+  # The checkpoint_path should be managed internally by the agent using checkpoint.todos.path
+  # to ensure consistency and prevent users from accessing arbitrary file paths.
+  # This function remains available in the codebase for internal use but is not exposed as a tool.
