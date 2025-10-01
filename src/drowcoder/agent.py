@@ -63,7 +63,6 @@ class DrowAgent:
         self.tools = tool_manager.get_tool_descs()
         self.tool_funcs = tool_manager.get_tool_funcs()
 
-        # WORKAROUND: Set update_todos partial arg for checkpoint path
         # WORKAROUND: Bind checkpoint path to TODO tools (both must exist together)
         update_todos_existence = 'update_todos' in self.tool_funcs
         get_todos_existence = 'get_todos' in self.tool_funcs
