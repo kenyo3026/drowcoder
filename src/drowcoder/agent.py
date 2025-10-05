@@ -11,6 +11,7 @@ from .checkpoint import Checkpoint
 from .prompts import *
 from .tools import tool_manager
 from .verbose import *
+from .utils.unique_id import generate_unique_id
 
 
 @dataclass(frozen=True)
@@ -23,11 +24,12 @@ class AgentRole:
 
 @dataclass
 class ToolCallResponse:
-    role         :str
-    tool_call_id :str
-    name         :str
-    arguments    :dict
-    content      :str
+    role               :str
+    tool_call_id       :str
+    tool_call_group_id :str
+    name               :str
+    arguments          :dict
+    content            :str
 
     def form_content(self):
         return '\n'.join([f'**{key}:**\n{value}' for key, value in self.__dict__.items()
@@ -45,6 +47,7 @@ class DrowAgent:
         self,
         workspace: str = None,
         tools: Optional[List[Dict[str, Any]]] = None,
+        keep_last_k_tool_call_contexts:int = 1,
         checkpoint: Union[str, Checkpoint] = None,
         verbose_style: Union[str, VerboseStyle] = VerboseStyle.PRETTY,
         **completion_kwargs
@@ -62,6 +65,8 @@ class DrowAgent:
         # Get tools from tool manager
         self.tools = tool_manager.get_tool_descs()
         self.tool_funcs = tool_manager.get_tool_funcs()
+        self.tool_call_group_ids = []
+        self.keep_last_k_tool_call_contexts = keep_last_k_tool_call_contexts
 
         # WORKAROUND: Bind checkpoint path to TODO tools (both must exist together)
         update_todos_existence = 'update_todos' in self.tool_funcs
@@ -136,6 +141,9 @@ class DrowAgent:
         self.workspace = workspace
 
     def call_tool(self, tool_calls:List[litellm.types.utils.ChatCompletionMessageToolCall]):
+        tool_call_group_id = generate_unique_id(length=8)
+        self.tool_call_group_ids.append(tool_call_group_id)
+
         for tool_call in tool_calls:
             func_name = tool_call.function.name
             arguments = json.loads(tool_call.function.arguments)
@@ -152,6 +160,7 @@ class DrowAgent:
             tool_response = ToolCallResponse(
                 role = AgentRole.TOOL,
                 tool_call_id = tool_call.id,
+                tool_call_group_id = tool_call_group_id,
                 name = func_name,
                 arguments = arguments,
                 content = content,
@@ -182,7 +191,9 @@ class DrowAgent:
     def complete(self, **completion_kwargs):
         completion_kwargs = {**self.completion_kwargs, **completion_kwargs}
 
-        response = litellm.completion(messages=self.messages, **completion_kwargs)
+        messages = self._prepare_messages(self.messages, self.keep_last_k_tool_call_contexts)
+
+        response = litellm.completion(messages=messages, **completion_kwargs)
         message = response.choices[0].message
         self.messages.append(message.__dict__)
 
@@ -200,3 +211,31 @@ class DrowAgent:
             return
         message = self.messages[-1]
         self.verboser.verbose_message(message)
+
+    def _prepare_messages(self, messages, **kwargs):
+        if self.tool_call_group_ids:
+            messages = self._prepare_tool_messages(messages, **kwargs)
+        return messages
+
+    def _prepare_tool_messages(self, messages, last_k_tool_call_group:int=1, **kwargs):
+        if last_k_tool_call_group > 0:
+            last_k_tool_call_group = min(last_k_tool_call_group, len(self.tool_call_group_ids))
+
+            _group_id_for_break = self.tool_call_group_ids[-last_k_tool_call_group]
+            _messages_for_llm, _flag_for_pop = [], True
+            for message in messages:
+                if message.get('role') == AgentRole.TOOL and message.get('tool_call_group_id') == _group_id_for_break:
+                    _flag_for_pop = False
+                if message.get('role') == AgentRole.TOOL and _flag_for_pop:
+                    continue
+                _messages_for_llm.append(message)
+            return _messages_for_llm
+
+        elif last_k_tool_call_group == 0:  # ignore all tool messages for llm
+            return [message for message in messages if message.get('role') != AgentRole.TOOL]
+
+        elif last_k_tool_call_group == -1: # keep all tool messages for llm
+            return messages
+
+        else:
+            raise ValueError(f"Invalid last_k_tool_call_group: {last_k_tool_call_group}. Must be > 0 or -1.")
