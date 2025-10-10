@@ -47,7 +47,7 @@ class DrowAgent:
         self,
         workspace: str = None,
         tools: Optional[List[Dict[str, Any]]] = None,
-        keep_last_k_tool_call_contexts:int = 1,
+        keep_last_k_tool_call_contexts:int = 5,
         checkpoint: Union[str, Checkpoint] = None,
         verbose_style: Union[str, VerboseStyle] = VerboseStyle.PRETTY,
         **completion_kwargs
