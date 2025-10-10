@@ -1,7 +1,7 @@
 tools:
   - type: function
     function:
-      name: todo_write
+      name: update_todos
       description: |
         Use this tool to create and manage a structured task list for your current coding session. This helps track progress, organize complex tasks, and demonstrate thoroughness.
 
