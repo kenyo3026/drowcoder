@@ -77,22 +77,22 @@ class DrowAgent:
             self.tool_funcs['update_todos'] = partial(
                 self.tool_funcs['update_todos'], checkpoint_path=self.checkpoint.todos.path
             )
-            self.tool_funcs['get_todos'] = partial(
-                self.tool_funcs['get_todos'], checkpoint_path=self.checkpoint.todos.path
-            )
-        elif update_todos_existence or get_todos_existence:
-            # Only one exists - this is invalid, show warning
-            missing_tool = 'get_todos' if update_todos_existence else 'update_todos'
-            existing_tool = 'update_todos' if update_todos_existence else 'get_todos'
-            print(f"⚠️  Warning: TODO tools registration failed - {existing_tool} found but {missing_tool} is missing.")
-            print(f"   Both update_todos and get_todos must be registered together for proper TODO functionality.")
+        #     self.tool_funcs['get_todos'] = partial(
+        #         self.tool_funcs['get_todos'], checkpoint_path=self.checkpoint.todos.path
+        #     )
+        # elif update_todos_existence or get_todos_existence:
+        #     # Only one exists - this is invalid, show warning
+        #     missing_tool = 'get_todos' if update_todos_existence else 'update_todos'
+        #     existing_tool = 'update_todos' if update_todos_existence else 'get_todos'
+        #     print(f"⚠️  Warning: TODO tools registration failed - {existing_tool} found but {missing_tool} is missing.")
+        #     print(f"   Both update_todos and get_todos must be registered together for proper TODO functionality.")
 
-            # Remove the incomplete tool to prevent partial functionality
-            if update_todos_existence:
-                del self.tool_funcs['update_todos']
-            if get_todos_existence:
-                del self.tool_funcs['get_todos']
-        # If neither exists, no action needed (silent - this is normal)
+        #     # Remove the incomplete tool to prevent partial functionality
+        #     if update_todos_existence:
+        #         del self.tool_funcs['update_todos']
+        #     if get_todos_existence:
+        #         del self.tool_funcs['get_todos']
+        # # If neither exists, no action needed (silent - this is normal)
 
         self.messages = []
         self.system_prompt = SystemPromptInstruction.format(tools=self.tools)
