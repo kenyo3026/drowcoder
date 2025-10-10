@@ -191,7 +191,7 @@ class DrowAgent:
     def complete(self, **completion_kwargs):
         completion_kwargs = {**self.completion_kwargs, **completion_kwargs}
 
-        messages = self._prepare_messages(self.messages, self.keep_last_k_tool_call_contexts)
+        messages = self._prepare_messages(self.messages, last_k_tool_call_group=self.keep_last_k_tool_call_contexts)
 
         response = litellm.completion(messages=messages, **completion_kwargs)
         message = response.choices[0].message
