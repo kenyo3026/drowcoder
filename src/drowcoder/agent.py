@@ -123,7 +123,11 @@ class DrowAgent:
 
     def init(self):
         if self.system_prompt:
-            self.messages.append({"role": AgentRole.SYSTEM, "content": self.system_prompt})
+            message = {"role": AgentRole.SYSTEM, "content": self.system_prompt}
+            self.messages.append(message)
+
+            self.checkpoint.messages.punch(message)
+            self.checkpoint.raw_messages.punch(message)
 
     def setup_workspace(self, workspace: str):
         workspace = pathlib.Path(workspace or os.getcwd()).resolve()
