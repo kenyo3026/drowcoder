@@ -1,0 +1,161 @@
+"""
+Base classes for unified tool architecture.
+
+This module provides the abstract base classes and common data structures
+for all tools in the drowcoder system.
+"""
+
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from typing import Any, Dict, Optional, Callable
+import logging
+
+
+@dataclass(frozen=True)
+class ToolStatus:
+    """Tool status enumeration."""
+    UNINITIALIZED: str = 'uninitialized'
+    INITIALIZED: str = 'initialized'
+    ERROR: str = 'error'
+
+
+@dataclass
+class ToolConfig:
+    """
+    Base configuration for all tools.
+
+    Attributes:
+        name: Tool name identifier
+        logger: Optional logger instance for tool operations
+        callback: Optional callback function for tool events
+        config: Additional tool-specific configuration
+        status: Current initialization status
+    """
+    name: str
+    logger: Optional[logging.Logger] = None
+    callback: Optional[Callable] = None
+    config: Dict[str, Any] = field(default_factory=dict)
+    status: str = field(default=ToolStatus.UNINITIALIZED)
+
+    def __post_init__(self):
+        """Validate status on initialization."""
+        valid_statuses = [ToolStatus.UNINITIALIZED, ToolStatus.INITIALIZED, ToolStatus.ERROR]
+        if self.status not in valid_statuses:
+            raise ValueError(f"Invalid status '{self.status}'. Must be one of: {valid_statuses}")
+
+
+@dataclass
+class ToolResult:
+    """
+    Standard result format for all tool executions.
+
+    Attributes:
+        success: Whether the tool execution succeeded
+        data: The actual result data from the tool
+        error: Error message if execution failed
+        metadata: Additional metadata about the execution
+    """
+    success: bool
+    data: Any = None
+    error: Optional[str] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+class BaseTool(ABC):
+    """
+    Abstract base class for all tools.
+
+    All tools should inherit from this class and implement the execute() method.
+    This ensures a consistent interface across all tools and enables unified
+    initialization and management.
+    """
+
+    def __init__(self, config: Optional[ToolConfig] = None, auto_initialize: bool = True, **kwargs):
+        """
+        Initialize the tool with configuration.
+
+        Args:
+            config: Optional ToolConfig instance. If None, creates one from kwargs.
+            auto_initialize: Whether to automatically call initialize() (default: True)
+            **kwargs: Configuration parameters matching ToolConfig fields:
+                - name: Tool name identifier (defaults to class name)
+                - logger: Optional logger instance for tool operations
+                - callback: Optional callback function for tool events
+                - config: Additional tool-specific configuration
+                - status: Initial status (defaults to UNINITIALIZED)
+        """
+        # Use class name as default if name not provided
+        if 'name' not in kwargs:
+            kwargs['name'] = self.__class__.__name__.lower().replace('tool', '')
+
+        # Always create a fresh ToolConfig from kwargs
+        # This simplifies the logic and avoids dataclass replace issues
+        config = ToolConfig(**kwargs)
+
+        self.config = config
+        self.logger = config.logger or logging.getLogger(self.__class__.__name__)
+        self.callback = config.callback
+        self._initialized = False
+
+        # Auto-initialize by default for convenience
+        if auto_initialize:
+            self.initialize()
+
+    def initialize(self) -> None:
+        """
+        Initialize the tool.
+
+        Called automatically in __init__ unless auto_initialize=False.
+        Subclasses can override to add custom initialization logic,
+        but should call super().initialize().
+
+        This method is idempotent - calling it multiple times is safe.
+        """
+        if self._initialized:
+            self.logger.debug(f"Tool {self.config.name} already initialized, skipping")
+            return
+
+        object.__setattr__(self.config, 'status', ToolStatus.INITIALIZED)
+        self._initialized = True
+        self.logger.info(f"Tool {self.config.name} initialized")
+
+    @abstractmethod
+    def execute(self, **kwargs) -> ToolResult:
+        """
+        Execute the tool's main functionality.
+
+        Args:
+            **kwargs: Tool-specific execution parameters
+
+        Returns:
+            ToolResult with execution results
+        """
+        pass
+
+    def _validate_initialized(self) -> None:
+        """
+        Validate that the tool has been initialized.
+
+        Raises:
+            RuntimeError: If tool has not been initialized
+        """
+        if not self._initialized:
+            raise RuntimeError(
+                f"Tool {self.config.name} not initialized. "
+                f"Call initialize() before execute(), or use auto_initialize=True (default)."
+            )
+
+    def _trigger_callback(self, event: str, data: Dict[str, Any]) -> None:
+        """
+        Trigger the callback if one is configured.
+
+        Args:
+            event: Event name
+            data: Event data
+        """
+        if self.callback:
+            try:
+                self.callback(event, data)
+            except Exception as e:
+                self.logger.warning(f"Callback failed for event {event}: {e}")
+
