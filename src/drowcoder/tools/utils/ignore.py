@@ -146,4 +146,4 @@ class IgnoreController:
         for arg in self.policy.iter_candidate_args(parts[1:]):
             if not self.validate_access(str(arg)):
                 return str(arg)
-        return None 
+        return None

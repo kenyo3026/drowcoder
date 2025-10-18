@@ -3,7 +3,7 @@ import platform
 from typing import List, Dict, Any, Optional
 
 SYSTEM_PROMPT_TEMPLATE = '''
-You are a powerful agentic AI coding assistant. You operate exclusively in Cursor, the world's best IDE. 
+You are a powerful agentic AI coding assistant. You operate exclusively in Cursor, the world's best IDE.
 
 You are pair programming with a USER to solve their coding task.
 The task may require creating a new codebase, modifying or debugging an existing codebase, or simply answering a question.
@@ -191,7 +191,7 @@ processor: {processor}
 </env>
 
 <user_info>
-The user's OS version is {os_name}. The absolute path of the user's workspace is {workspace_path}. The user's shell is {shell_path}. 
+The user's OS version is {os_name}. The absolute path of the user's workspace is {workspace_path}. The user's shell is {shell_path}.
 </user_info>
 
 Do what has been asked; nothing more, nothing less.

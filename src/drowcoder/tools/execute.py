@@ -210,4 +210,4 @@ if __name__ == "__main__":
     # Propagate meaningful exit status
     if result.timed_out:
         os._exit(124)  # conventional timeout exit code
-    os._exit(result.exit_code if isinstance(result.exit_code, int) else 1) 
+    os._exit(result.exit_code if isinstance(result.exit_code, int) else 1)

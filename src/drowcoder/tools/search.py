@@ -256,7 +256,7 @@ def search_file(
         shell_policy (str): Shell policy for command parsing (auto/unix/powershell)
 
     Returns:
-        str or list or PathTreeForSearchTool: 
+        str or list or PathTreeForSearchTool:
             - If as_graph=True and as_text=True: Formatted tree string
             - If as_graph=True and as_text=False: PathTreeForSearchTool object
             - If as_graph=False and as_text=True: Formatted traditional string
@@ -426,7 +426,7 @@ def format_results_to_pretty_graph(
         as_text (bool): If True, return formatted string; if False, return tree object
 
     Returns:
-        str or PathTreeForSearchTool: 
+        str or PathTreeForSearchTool:
             - If as_text=True: Formatted tree string
             - If as_text=False: PathTreeForSearchTool object
     """

@@ -62,7 +62,7 @@ class CompactMessageVerboser(BaseMessageVerboser):
 class PrettyMessageVerboser(BaseMessageVerboser):
     """Pretty formatted message verboser with colors and structure"""
 
-    def __init__(self, 
+    def __init__(self,
                  max_content_length: int = 1000,
                  max_tool_result_length: int = 500,
                  max_arg_length: int = 100,

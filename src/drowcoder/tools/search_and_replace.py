@@ -401,7 +401,7 @@ def search_and_ask_replace(
         replace: Replacement content. Can be multiline string or empty string for deletion
         output_style: Output formatting style:
             - "default": Complete modified file content
-            - "git_diff": Git diff style output  
+            - "git_diff": Git diff style output
             - "git_conflict": Git conflict markers (VS Code compatible)
         output_file: Custom output path (None = modify original file)
         **kwargs: Additional options:
@@ -411,7 +411,7 @@ def search_and_ask_replace(
             - file_pattern (str): File pattern for directory search (default: "*")
 
     Returns:
-        Union[SearchReplaceResult, str]: 
+        Union[SearchReplaceResult, str]:
             - SearchReplaceResult if changes are applied or no matches found
             - str with cancellation message if user declines or interrupts
 
@@ -427,11 +427,11 @@ def search_and_ask_replace(
         result = search_and_ask_replace("file.txt", "old line", "new line")
 
         # With git conflict style
-        result = search_and_ask_replace("file.txt", "old", "new", 
+        result = search_and_ask_replace("file.txt", "old", "new",
                                        output_style="git_conflict")
 
         # Multi-line replacement with confirmation
-        result = search_and_ask_replace("file.txt", "TODO\\nFIXME", 
+        result = search_and_ask_replace("file.txt", "TODO\\nFIXME",
                                        "COMPLETED\\nDONE")
     """
     engine = SearchReplaceEngine()
@@ -497,11 +497,11 @@ def search_and_replace(
     **kwargs
 ) -> SearchReplaceResult:
     """
-    Search for specific text patterns in files and replace them with new content. 
+    Search for specific text patterns in files and replace them with new content.
 
     Features:
     - One-to-many: single line → multiple lines
-    - Many-to-one: multiple lines → single line  
+    - Many-to-one: multiple lines → single line
     - Deletion: replace with empty string ""
     - Line range targeting with start_line/end_line
 
@@ -521,7 +521,7 @@ def search_and_replace(
         **kwargs: Additional options:
             - case_sensitive (bool): Case sensitive search (default: True)
             - start_line (int): Start line number (1-based)
-            - end_line (int): End line number (1-based)  
+            - end_line (int): End line number (1-based)
             - file_pattern (str): File pattern for directory search (default: "*")
 
     Returns:
@@ -554,7 +554,7 @@ def search_and_replace(
         search_and_replace("file.txt", "old", "new", output_style="git_conflict")
 
         # Case insensitive with line range
-        search_and_replace("file.txt", "OLD", "new", case_sensitive=False, 
+        search_and_replace("file.txt", "OLD", "new", case_sensitive=False,
                           start_line=10, end_line=50)
     """
     # Validate mode parameter
@@ -696,15 +696,15 @@ Examples:
             search_and_replace(test_file, "TODO: Fix this", "FIXED: Done", mode="preview")
 
             print("\n=== Preview Mode (Git Diff) ===")
-            search_and_replace(test_file, "TODO: Fix this", "FIXED: Done", 
+            search_and_replace(test_file, "TODO: Fix this", "FIXED: Done",
                                mode="preview", output_style="git_diff")
 
             print("\n=== Preview Mode (Git Conflict) ===")
-            search_and_replace(test_file, "TODO: Fix this", ["FIXED: Done", "Additional info"], 
+            search_and_replace(test_file, "TODO: Fix this", ["FIXED: Done", "Additional info"],
                                mode="preview", output_style="git_conflict")
 
             print("\n=== Apply Mode (Git Conflict to file) ===")
-            result = search_and_replace(test_file, "TODO: Fix this", "FIXED: Done", 
+            result = search_and_replace(test_file, "TODO: Fix this", "FIXED: Done",
                                         mode="apply", output_style="git_conflict", output_file="demo_output.txt")
 
             print(f"Total files processed: {len(result.file_results)}")
