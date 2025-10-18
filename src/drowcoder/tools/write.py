@@ -391,8 +391,8 @@ class WriteEngine:
 
         except Exception as e:
             file_result = FileResult(
-                file_path=config.file_path, 
-                success=False, 
+                file_path=config.file_path,
+                success=False,
                 error_message=str(e)
             )
             result.file_results.append(file_result)
@@ -479,9 +479,9 @@ class WriteEngine:
                     target_path = file_result.file_path
 
                 # Create backup if needed (only for DEFAULT style and same file)
-                if (result.config.backup and 
-                    target_path.exists() and 
-                    target_path == file_result.file_path and 
+                if (result.config.backup and
+                    target_path.exists() and
+                    target_path == file_result.file_path and
                     style == OutputStyle.DEFAULT):
                     file_result.backup_path = self._create_backup(target_path)
                     if file_result.backup_path:
@@ -504,8 +504,8 @@ class WriteEngine:
                     f.write(content)
 
                 # Preserve permissions if requested (only for DEFAULT style)
-                if (result.config.preserve_permissions and 
-                    file_result.file_path.exists() and 
+                if (result.config.preserve_permissions and
+                    file_result.file_path.exists() and
                     target_path != file_result.file_path and
                     style == OutputStyle.DEFAULT):
                     try:
@@ -575,7 +575,7 @@ def write_and_ask(
         result = write_and_ask("log.txt", "\\nNew entry", operation="append")
 
         # Create new file with git conflict preview
-        result = write_and_ask("new.txt", "content", operation="create", 
+        result = write_and_ask("new.txt", "content", operation="create",
                               output_style="git_conflict")
     """
     engine = WriteEngine()
@@ -768,17 +768,17 @@ Examples:
 
     parser.add_argument('-f', '--file', type=str, help='Target file path')
     parser.add_argument('-c', '--content', type=str, help='Content to write')
-    parser.add_argument('-m', '--mode', choices=['preview', 'apply', 'preview_and_ask'], 
+    parser.add_argument('-m', '--mode', choices=['preview', 'apply', 'preview_and_ask'],
                        default='preview', help='Execution mode (default: preview)')
-    parser.add_argument('--style', choices=['default', 'git_diff', 'git_conflict'], 
+    parser.add_argument('--style', choices=['default', 'git_diff', 'git_conflict'],
                        default='default', help='Output style (default: default)')
-    parser.add_argument('--operation', choices=['create', 'overwrite', 'append', 'prepend'], 
+    parser.add_argument('--operation', choices=['create', 'overwrite', 'append', 'prepend'],
                        default='overwrite', help='Write operation (default: overwrite)')
     parser.add_argument('-o', '--output-file', type=str, help='Output file path (for apply mode)')
     parser.add_argument('--encoding', type=str, default='utf-8', help='File encoding (default: utf-8)')
     parser.add_argument('--no-backup', action='store_true', help='Disable backup creation')
     parser.add_argument('--no-create-dirs', action='store_true', help='Disable directory creation')
-    parser.add_argument('--no-preserve-permissions', action='store_true', 
+    parser.add_argument('--no-preserve-permissions', action='store_true',
                        help='Disable permission preservation')
 
     args = parser.parse_args()
@@ -861,7 +861,7 @@ Examples:
             write_file(test_file, "Prepended line\n", mode="preview", operation="prepend")
 
             print("\n=== Apply Mode (Create new file) ===")
-            result = write_file("demo_output.txt", "Demo content\nLine 2", 
+            result = write_file("demo_output.txt", "Demo content\nLine 2",
                               mode="apply", operation="create")
 
             print(f"Success: {result.success}")
@@ -873,4 +873,4 @@ Examples:
                 os.unlink(test_file)
             if os.path.exists("demo_output.txt"):
                 print("Cleaning up demo_output.txt")
-                os.unlink("demo_output.txt") 
+                os.unlink("demo_output.txt")

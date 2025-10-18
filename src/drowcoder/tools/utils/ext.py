@@ -218,22 +218,22 @@ def get_lfs_patterns(workspace_path: str) -> List[str]:
     """Get Git LFS file patterns"""
     try:
         attributes_path = Path(workspace_path) / ".gitattributes"
-        
+
         if attributes_path.exists():
             with open(attributes_path, "r", encoding="utf-8") as f:
                 content = f.read()
                 lines = content.split("\n")
                 lfs_patterns = []
-                
+
                 for line in lines:
                     if "filter=lfs" in line:
                         pattern = line.split(" ")[0].strip()
                         lfs_patterns.append(pattern)
-                
+
                 return lfs_patterns
     except Exception:
         pass
-    
+
     return []
 
 
