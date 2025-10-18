@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Optional, Dict
 import subprocess
@@ -36,6 +36,16 @@ class CommandResult:
     duration_ms: int
     timed_out: bool
 
+    def to_dict(self):
+        return asdict(self)
+
+    def to_str(self):
+        _dict = self.to_dict()
+        return str(_dict)
+
+    def to_pretty_str(self):
+        _dict = self.to_dict()
+        return '\n'.join([f'{key}: {str(value)}' for key, value in _dict.items()])
 
 class CommandExecutor:
     """Executes shell commands based on CommandConfig and returns structured results."""
@@ -145,7 +155,7 @@ def execute_command(
         enable_ignore=enable_ignore,
         shell_policy=shell_policy,
     )
-    return CommandExecutor().run(cfg)
+    return CommandExecutor().run(cfg).to_pretty_str()
 
 
 if __name__ == "__main__":
