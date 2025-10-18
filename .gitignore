@@ -22,9 +22,11 @@ checkpoints/*
 configs/*
 logs/*
 scripts/*
+src/drowcoder/tools/tests/reports/*
 
 # test files
 test_*.py
+!src/drowcoder/tools/tests/test_*.py
 
 # TODO
 TODO.md
