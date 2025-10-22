@@ -1,5 +1,5 @@
 # .cursor
-.cursor/*
+.cursor/
 
 # .DS_Store
 .DS_Store
@@ -16,12 +16,17 @@ build/
 dist/
 *.egg
 
+# Coverage reports
+.coverage
+coverage.xml
+htmlcov/
+
 # directories
 artifacts/*
 checkpoints/*
 configs/*
 logs/*
-scripts/*
+scripts/
 src/drowcoder/tools/tests/reports/*
 
 # test files
