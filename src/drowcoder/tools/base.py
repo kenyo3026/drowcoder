@@ -21,11 +21,11 @@ class ToolConfig:
         name: Tool name identifier
         logger: Optional logger instance for tool operations
         callback: Optional callback function for tool events
-        checkpoint_path: Optional checkpoint path for tools that need persistence
+        checkpoint: Optional checkpoint root for tools that need persistence
     """
     logger: Optional[logging.Logger] = None
     callback: Optional[Callable] = None
-    checkpoint_path: Optional[Union[str, Path]] = None
+    checkpoint: Optional[Union[str, Path]] = None
 
 
 @dataclass
@@ -66,7 +66,7 @@ class BaseTool(ABC):
                 - name: Tool name identifier (defaults to class name)
                 - logger: Optional logger instance for tool operations
                 - callback: Optional callback function for tool events
-                - checkpoint_path: Optional checkpoint path for persistence
+                - checkpoint: Optional checkpoint root for persistence
         """
         # Always create a fresh ToolConfig from kwargs
         # This simplifies the logic and avoids dataclass replace issues
