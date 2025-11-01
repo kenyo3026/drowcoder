@@ -75,11 +75,12 @@ class TodoTool(BaseTool):
             ValueError: If checkpoint_path is not provided
         """
         super().__init__(**kwargs)
-        if self.checkpoint_path is None:
+        if self.checkpoint is None:
             raise ValueError(
-                "TodoTool requires checkpoint_path to be provided in config. "
-                "Please provide checkpoint_path when initializing TodoTool."
+                "TodoTool requires checkpoint to be provided in config. "
+                "Please provide checkpoint when initializing TodoTool."
             )
+        self.checkpoint_path = pathlib.Path(self.checkpoint) / 'todos.json'
 
     def validate_todo_items(self, todos: List[Dict[str, Any]]) -> List[TodoItem]:
         """
@@ -337,7 +338,7 @@ def update_todos(
         ValueError: If todo items are invalid
         IOError: If checkpoint file operations fail
     """
-    tool = TodoTool(checkpoint_path=checkpoint_path)
+    tool = TodoTool(checkpoint=checkpoint_path)
     result = tool.execute(merge=merge, todos=todos)
 
     if not result.success:
