@@ -1,32 +1,61 @@
+"""
+Refactored write tool using unified tool architecture.
+
+This module provides advanced file writing functionality with:
+- Multiple operations: create, overwrite, append, prepend
+- Preview and apply modes
+- Multiple output styles: default, git_diff, git_conflict
+- Safety validation and backup support
+- Unified tool interface with BaseTool
+"""
+
 import os
-from dataclasses import dataclass, field
-from enum import Enum
-from pathlib import Path
-from typing import List, Optional, Union, Dict
-import tempfile
 import shutil
 import difflib
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import List, Optional, Union, Dict, Any
+
+from .base import BaseTool, ToolResult
 
 
-class OutputStyle(Enum):
+@dataclass(frozen=True)
+class OutputStyle:
     """Output formatting styles"""
-    DEFAULT = "default"
-    GIT_DIFF = "git_diff"
-    GIT_CONFLICT = "git_conflict"
+    DEFAULT: str = "default"
+    GIT_DIFF: str = "git_diff"
+    GIT_CONFLICT: str = "git_conflict"
+
+    @classmethod
+    def values(cls):
+        """Return all valid style values."""
+        return [getattr(cls, attr) for attr in cls.__annotations__.keys()]
 
 
-class ExecutionMode(Enum):
+@dataclass(frozen=True)
+class ExecutionMode:
     """Execution modes"""
-    PREVIEW = "preview"
-    APPLY = "apply"
+    PREVIEW: str = "preview"
+    APPLY: str = "apply"
+
+    @classmethod
+    def values(cls):
+        """Return all valid mode values."""
+        return [getattr(cls, attr) for attr in cls.__annotations__.keys()]
 
 
-class WriteOperation(Enum):
+@dataclass(frozen=True)
+class WriteOperation:
     """Types of write operations"""
-    CREATE = "create"
-    OVERWRITE = "overwrite"
-    APPEND = "append"
-    PREPEND = "prepend"
+    CREATE: str = "create"
+    OVERWRITE: str = "overwrite"
+    APPEND: str = "append"
+    PREPEND: str = "prepend"
+
+    @classmethod
+    def values(cls):
+        """Return all valid operation values."""
+        return [getattr(cls, attr) for attr in cls.__annotations__.keys()]
 
 
 @dataclass
@@ -35,7 +64,7 @@ class FileChange:
     file_path: Path
     original_content: str
     new_content: str
-    operation: WriteOperation
+    operation: str
 
     @property
     def has_changes(self) -> bool:
@@ -87,7 +116,7 @@ class WriteConfig:
     """Configuration for write operation"""
     content: str
     file_path: Union[str, Path]
-    operation: WriteOperation = WriteOperation.OVERWRITE
+    operation: str = WriteOperation.OVERWRITE
     encoding: str = "utf-8"
     backup: bool = True
     create_dirs: bool = True
@@ -97,12 +126,19 @@ class WriteConfig:
         self.file_path = Path(self.file_path)
         # Normalize content line endings
         self.content = self.content.replace('\r\n', '\n').replace('\r', '\n')
+        # Validate operation value
+        if self.operation not in WriteOperation.values():
+            raise ValueError(f"Invalid operation '{self.operation}'. Must be one of: {WriteOperation.values()}")
 
 
 @dataclass
-class WriteResult:
-    """Complete write operation results"""
-    config: WriteConfig
+class WriteToolResult(ToolResult):
+    """
+    Result from write tool execution.
+
+    Extends ToolResult with write-specific information.
+    """
+    config: Optional[WriteConfig] = None
     file_results: List[FileResult] = field(default_factory=list)
 
     @property
@@ -116,10 +152,6 @@ class WriteResult:
     @property
     def total_files_created(self) -> int:
         return sum(1 for fr in self.file_results if fr.change and fr.change.is_new_file)
-
-    @property
-    def success(self) -> bool:
-        return all(fr.success for fr in self.file_results)
 
 
 class FileProcessor:
@@ -318,14 +350,22 @@ class SafetyValidator:
         return warnings
 
 
-class WriteEngine:
-    """Main write file engine"""
+class WriteTool(BaseTool):
+    """
+    Tool for advanced file writing operations.
 
-    def __init__(self):
+    Supports multiple operation modes (create, overwrite, append, prepend),
+    preview/apply modes, and various output styles.
+    """
+    name = 'write'
+
+    def __init__(self, **kwargs):
+        """Initialize WriteTool."""
+        super().__init__(**kwargs)
         self.formatter = OutputFormatter()
         self.validator = SafetyValidator()
 
-    def write_file(
+    def execute(
         self,
         file_path: Union[str, Path],
         content: str,
@@ -334,9 +374,9 @@ class WriteEngine:
         operation: str = "overwrite",
         output_file: Optional[Union[str, Path]] = None,
         **kwargs
-    ) -> WriteResult:
+    ) -> WriteToolResult:
         """
-        Main entry point for file write operations
+        Execute write operation.
 
         Args:
             file_path: Target file path
@@ -346,18 +386,31 @@ class WriteEngine:
             operation: "create", "overwrite", "append", or "prepend"
             output_file: Optional output file path (for apply mode)
             **kwargs: Additional configuration options
+
+        Returns:
+            WriteToolResult with operation results
         """
+        self._validate_initialized()
+
         # Check if content would result in no changes
         if self._is_content_identical(file_path, content, operation):
             print("ℹ️  Content is identical to existing file - no changes needed.")
             config = WriteConfig(content=content, file_path=file_path, **kwargs)
-            return WriteResult(config=config)
+            return WriteToolResult(
+                success=True,
+                config=config,
+                data="No changes needed"
+            )
 
         # Create configuration
+        operation_value = operation.lower()
+        if operation_value not in WriteOperation.values():
+            raise ValueError(f"Invalid operation '{operation}'. Must be one of: {WriteOperation.values()}")
+
         config = WriteConfig(
             content=content,
             file_path=file_path,
-            operation=WriteOperation(operation.lower()),
+            operation=operation_value,
             **kwargs
         )
 
@@ -373,7 +426,7 @@ class WriteEngine:
 
         # Process file
         processor = FileProcessor(config)
-        result = WriteResult(config=config)
+        result = WriteToolResult(config=config, success=True)
 
         try:
             change = processor.prepare_change()
@@ -381,13 +434,28 @@ class WriteEngine:
             result.file_results.append(file_result)
 
             # Handle output based on mode
-            execution_mode = ExecutionMode(mode.lower())
-            style = OutputStyle(output_style.lower())
+            mode_value = mode.lower()
+            if mode_value not in ExecutionMode.values():
+                raise ValueError(f"Invalid mode '{mode}'. Must be one of: {ExecutionMode.values()}")
 
-            if execution_mode == ExecutionMode.PREVIEW:
-                self._handle_preview(result, style)
+            style_value = output_style.lower()
+            if style_value not in OutputStyle.values():
+                raise ValueError(f"Invalid output_style '{output_style}'. Must be one of: {OutputStyle.values()}")
+
+            if mode_value == ExecutionMode.PREVIEW:
+                self._handle_preview(result, style_value)
+                result.data = "Preview completed"
             else:  # APPLY
-                self._handle_apply(result, style, output_file)
+                self._handle_apply(result, style_value, output_file)
+                result.data = "Write operation completed"
+
+            # Trigger callback if configured
+            self._trigger_callback("write_completed", {
+                "file_path": str(config.file_path),
+                "operation": operation,
+                "mode": mode,
+                "success": result.success
+            })
 
         except Exception as e:
             file_result = FileResult(
@@ -396,7 +464,11 @@ class WriteEngine:
                 error_message=str(e)
             )
             result.file_results.append(file_result)
+            result.success = False
+            result.error = str(e)
             print(f"❌ Error: {e}")
+
+            self.logger.error(f"Write operation failed: {e}")
 
         return result
 
@@ -441,7 +513,7 @@ class WriteEngine:
             print(f"Warning: Failed to create backup: {e}")
             return None
 
-    def _handle_preview(self, result: WriteResult, style: OutputStyle):
+    def _handle_preview(self, result: WriteToolResult, style: str):
         """Handle preview mode output"""
         for file_result in result.file_results:
             print(f"\n{'='*60}")
@@ -463,7 +535,7 @@ class WriteEngine:
             elif style == OutputStyle.GIT_CONFLICT:
                 print(self.formatter.format_git_conflict(file_result))
 
-    def _handle_apply(self, result: WriteResult, style: OutputStyle, output_file: Optional[Path]):
+    def _handle_apply(self, result: WriteToolResult, style: str, output_file: Optional[Path]):
         """Handle apply mode output"""
         for file_result in result.file_results:
             if not file_result.has_change:
@@ -519,7 +591,112 @@ class WriteEngine:
             except Exception as e:
                 file_result.success = False
                 file_result.error_message = str(e)
+                result.success = False
                 print(f"❌ Error writing {file_result.file_path}: {e}")
+
+
+# Backward compatible function interface
+def write_file(
+    file_path: Union[str, Path],
+    content: str,
+    mode: str = "apply",
+    output_style: str = "default",
+    operation: str = "overwrite",
+    output_file: Optional[Union[str, Path]] = None,
+    **kwargs
+) -> WriteToolResult:
+    """
+    Advanced file writing with flexible operation modes and safety features.
+
+    This is a backward-compatible wrapper around WriteTool.
+    Preserves the exact interface and behavior of the original function.
+
+    Features:
+    - Multiple operations: create, overwrite, append, prepend
+    - Preview mode for safe testing
+    - Multiple output styles: default, git_diff, git_conflict
+    - Automatic backup creation
+    - Safety checks and warnings
+    - Directory creation
+    - Permission preservation
+
+    Args:
+        file_path: Target file path
+        content: Content to write
+        mode: Execution mode options:
+            - "preview": Show changes without modifying files
+            - "apply": Apply changes directly to files
+            - "preview_and_ask": Preview first, then ask for confirmation
+        output_style: Output formatting style:
+            - "default": Complete file content
+            - "git_diff": Git diff style output
+            - "git_conflict": Git conflict markers (VS Code compatible)
+        operation: Write operation type:
+            - "create": Create new file (fail if exists)
+            - "overwrite": Replace entire file content
+            - "append": Add content to end of file
+            - "prepend": Add content to beginning of file
+        output_file: Custom output path (None = modify original file)
+        **kwargs: Additional options:
+            - encoding (str): File encoding (default: utf-8)
+            - backup (bool): Create backup (default: True)
+            - create_dirs (bool): Create parent directories (default: True)
+            - preserve_permissions (bool): Preserve file permissions (default: True)
+
+    Returns:
+        WriteToolResult: Results with operation status and metadata
+
+    Raises:
+        ValueError: If invalid mode is specified
+        FileNotFoundError: If target file/directory doesn't exist for certain operations
+        FileExistsError: If CREATE operation and file already exists
+
+    Examples:
+        # Create new file
+        write_file("new_file.txt", "Hello World", operation="create")
+
+        # Preview overwrite
+        write_file("existing.txt", "New content", mode="preview")
+
+        # Append to file
+        write_file("log.txt", "\\nNew log entry", operation="append")
+
+        # Prepend to file
+        write_file("file.txt", "Header content\\n", operation="prepend")
+
+        # Git conflict style for VS Code
+        write_file("file.txt", "new content", output_style="git_conflict", mode="preview")
+
+        # Custom output file
+        write_file("source.txt", "content", output_file="output.txt")
+    """
+    # Validate mode parameter
+    valid_modes = ["preview", "apply", "preview_and_ask"]
+    if mode not in valid_modes:
+        raise ValueError(f"Invalid mode '{mode}'. Must be one of: {', '.join(valid_modes)}")
+
+    # Handle interactive (preview and ask) mode
+    if mode == "preview_and_ask":
+        return write_and_ask(
+            file_path=file_path,
+            content=content,
+            output_style=output_style,
+            operation=operation,
+            output_file=output_file,
+            **kwargs
+        )
+
+    # Handle standard preview/apply modes
+    tool = WriteTool()
+    return tool.execute(
+        file_path=file_path,
+        content=content,
+        mode=mode,
+        output_style=output_style,
+        operation=operation,
+        output_file=output_file,
+        **kwargs
+    )
 
 
 def write_and_ask(
@@ -556,8 +733,8 @@ def write_and_ask(
             - preserve_permissions (bool): Preserve file permissions (default: True)
 
     Returns:
-        Union[WriteResult, str]:
-            - WriteResult if changes are applied or no changes needed
+        Union[WriteToolResult, str]:
+            - WriteToolResult if changes are applied or no changes needed
             - str with cancellation message if user declines or interrupts
 
     User Interaction:
@@ -578,8 +755,8 @@ def write_and_ask(
         result = write_and_ask("new.txt", "content", operation="create",
                               output_style="git_conflict")
     """
-    engine = WriteEngine()
-    preview_result = engine.write_file(
+    tool = WriteTool()
+    preview_result = tool.execute(
         file_path=file_path,
         content=content,
         mode='preview',
@@ -606,7 +783,7 @@ def write_and_ask(
             permission = input("Apply these changes? (y[YES]|n[NO]): ").strip()
 
             if permission.lower() in ['y', 'yes', 'true', 'apply']:
-                return engine.write_file(
+                return tool.execute(
                     file_path=file_path,
                     content=content,
                     mode='apply',
@@ -628,249 +805,3 @@ def write_and_ask(
             message = "\n❌ Operation cancelled (EOF)."
             return message
 
-
-# Convenience function for direct usage
-def write_file(
-    file_path: Union[str, Path],
-    content: str,
-    mode: str = "apply",
-    output_style: str = "default",
-    operation: str = "overwrite",
-    output_file: Optional[Union[str, Path]] = None,
-    **kwargs
-) -> WriteResult:
-    """
-    Advanced file writing with flexible operation modes and safety features.
-
-    Features:
-    - Multiple operations: create, overwrite, append, prepend
-    - Preview mode for safe testing
-    - Multiple output styles: default, git_diff, git_conflict
-    - Interactive mode with confirmation
-    - Automatic backup creation
-    - Safety checks and warnings
-    - Directory creation
-    - Permission preservation
-
-    Args:
-        file_path: Target file path
-        content: Content to write
-        mode: Execution mode options:
-            - "preview": Show changes without modifying files
-            - "apply": Apply changes directly to files
-            - "preview_and_ask": Preview first, then ask for confirmation
-        output_style: Output formatting style:
-            - "default": Complete file content
-            - "git_diff": Git diff style output
-            - "git_conflict": Git conflict markers (VS Code compatible)
-        operation: Write operation type:
-            - "create": Create new file (fail if exists)
-            - "overwrite": Replace entire file content
-            - "append": Add content to end of file
-            - "prepend": Add content to beginning of file
-        output_file: Custom output path (None = modify original file)
-        **kwargs: Additional options:
-            - encoding (str): File encoding (default: utf-8)
-            - backup (bool): Create backup (default: True)
-            - create_dirs (bool): Create parent directories (default: True)
-            - preserve_permissions (bool): Preserve file permissions (default: True)
-
-    Returns:
-        WriteResult: Results with operation status and metadata
-
-    Raises:
-        ValueError: If invalid mode is specified
-        FileNotFoundError: If target file/directory doesn't exist for certain operations
-        FileExistsError: If CREATE operation and file already exists
-
-    Examples:
-        # Create new file
-        write_file("new_file.txt", "Hello World", operation="create")
-
-        # Preview overwrite
-        write_file("existing.txt", "New content", mode="preview")
-
-        # Interactive mode with confirmation
-        write_file("file.txt", "content", mode="preview_and_ask")
-
-        # Append to file
-        write_file("log.txt", "\\nNew log entry", operation="append")
-
-        # Prepend to file
-        write_file("file.txt", "Header content\\n", operation="prepend")
-
-        # Git conflict style for VS Code
-        write_file("file.txt", "new content", output_style="git_conflict", mode="preview")
-
-        # Custom output file
-        write_file("source.txt", "content", output_file="output.txt")
-    """
-    # Validate mode parameter
-    valid_modes = ["preview", "apply", "preview_and_ask"]
-    if mode not in valid_modes:
-        raise ValueError(f"Invalid mode '{mode}'. Must be one of: {', '.join(valid_modes)}")
-
-    # Handle interactive (preview and ask) mode
-    if mode == "preview_and_ask":
-        return write_and_ask(
-            file_path=file_path,
-            content=content,
-            output_style=output_style,
-            operation=operation,
-            output_file=output_file,
-            **kwargs
-        )
-
-    # Handle standard preview/apply modes
-    engine = WriteEngine()
-    return engine.write_file(
-        file_path=file_path,
-        content=content,
-        mode=mode,
-        output_style=output_style,
-        operation=operation,
-        output_file=output_file,
-        **kwargs
-    )
-
-
-if __name__ == "__main__":
-    import argparse
-
-    # Set up argument parser
-    parser = argparse.ArgumentParser(
-        description="Write File V2 - Advanced file writing with multiple modes and safety features",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  # Create new file
-  python write_v2.py -f new_file.txt -c "Hello World" -m apply --operation create
-
-  # Preview overwrite with git diff
-  python write_v2.py -f existing.txt -c "New content" -m preview --style git_diff
-
-  # Interactive mode (preview and ask)
-  python write_v2.py -f file.txt -c "content" -m preview_and_ask
-
-  # Append to file
-  python write_v2.py -f log.txt -c "\\nNew entry" -m apply --operation append
-
-  # Prepend to file
-  python write_v2.py -f file.txt -c "Header\\n" -m apply --operation prepend
-
-  # Git conflict style for VS Code
-  python write_v2.py -f file.txt -c "new content" -m preview --style git_conflict
-
-  # Run demo with test content (no arguments)
-  python write_v2.py
-        """
-    )
-
-    parser.add_argument('-f', '--file', type=str, help='Target file path')
-    parser.add_argument('-c', '--content', type=str, help='Content to write')
-    parser.add_argument('-m', '--mode', choices=['preview', 'apply', 'preview_and_ask'],
-                       default='preview', help='Execution mode (default: preview)')
-    parser.add_argument('--style', choices=['default', 'git_diff', 'git_conflict'],
-                       default='default', help='Output style (default: default)')
-    parser.add_argument('--operation', choices=['create', 'overwrite', 'append', 'prepend'],
-                       default='overwrite', help='Write operation (default: overwrite)')
-    parser.add_argument('-o', '--output-file', type=str, help='Output file path (for apply mode)')
-    parser.add_argument('--encoding', type=str, default='utf-8', help='File encoding (default: utf-8)')
-    parser.add_argument('--no-backup', action='store_true', help='Disable backup creation')
-    parser.add_argument('--no-create-dirs', action='store_true', help='Disable directory creation')
-    parser.add_argument('--no-preserve-permissions', action='store_true',
-                       help='Disable permission preservation')
-
-    args = parser.parse_args()
-
-    # If file and content parameters are provided, process the actual file
-    if args.file and args.content is not None:
-        print(f"📝 Processing file: {args.file}")
-        print(f"Content: '{args.content}'")
-        print(f"Mode: {args.mode}")
-        print(f"Style: {args.style}")
-        print(f"Operation: {args.operation}")
-        print(f"Encoding: {args.encoding}")
-        print(f"Backup: {not args.no_backup}")
-        print(f"Create dirs: {not args.no_create_dirs}")
-        print(f"Preserve permissions: {not args.no_preserve_permissions}")
-
-        # Process content (handle \n sequences)
-        processed_content = args.content.replace('\\n', '\n')
-
-        # Prepare kwargs
-        kwargs = {
-            'encoding': args.encoding,
-            'backup': not args.no_backup,
-            'create_dirs': not args.no_create_dirs,
-            'preserve_permissions': not args.no_preserve_permissions,
-        }
-
-        try:
-            result = write_file(
-                file_path=args.file,
-                content=processed_content,
-                mode=args.mode,
-                output_style=args.style,
-                operation=args.operation,
-                output_file=args.output_file,
-                **kwargs
-            )
-
-            print(f"\n📊 Results:")
-            print(f"Files processed: {result.total_files_processed}")
-            print(f"Files changed: {result.total_files_changed}")
-            print(f"Files created: {result.total_files_created}")
-            print(f"Overall success: {result.success}")
-
-            for file_result in result.file_results:
-                if file_result.backup_path:
-                    print(f"Backup: {file_result.backup_path}")
-                if file_result.error_message:
-                    print(f"Error: {file_result.error_message}")
-
-        except Exception as e:
-            print(f"❌ Error: {e}")
-
-    else:
-        # Run demo with test content
-        print("🧪 Running demo with test content...")
-        print("(Use --help to see command line options)\n")
-
-        # Create a test file
-        test_content = "Original line 1\nOriginal line 2\nOriginal line 3"
-
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
-            f.write(test_content)
-            test_file = f.name
-
-        try:
-            print("=== Preview Mode (Default) ===")
-            write_file(test_file, "New content line 1\nNew content line 2", mode="preview")
-
-            print("\n=== Preview Mode (Git Diff) ===")
-            write_file(test_file, "Modified content", mode="preview", output_style="git_diff")
-
-            print("\n=== Preview Mode (Git Conflict) ===")
-            write_file(test_file, "Conflict content", mode="preview", output_style="git_conflict")
-
-            print("\n=== Append Operation ===")
-            write_file(test_file, "\nAppended line", mode="preview", operation="append")
-
-            print("\n=== Prepend Operation ===")
-            write_file(test_file, "Prepended line\n", mode="preview", operation="prepend")
-
-            print("\n=== Apply Mode (Create new file) ===")
-            result = write_file("demo_output.txt", "Demo content\nLine 2",
-                              mode="apply", operation="create")
-
-            print(f"Success: {result.success}")
-            print(f"Files created: {result.total_files_created}")
-
-        finally:
-            # Cleanup
-            if os.path.exists(test_file):
-                os.unlink(test_file)
-            if os.path.exists("demo_output.txt"):
-                print("Cleaning up demo_output.txt")
-                os.unlink("demo_output.txt")
