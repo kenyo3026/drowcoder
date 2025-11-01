@@ -7,16 +7,9 @@ for all tools in the drowcoder system.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional, Callable
+from typing import Any, Dict, Optional, Callable, Union
+from pathlib import Path
 import logging
-
-
-@dataclass(frozen=True)
-class ToolStatus:
-    """Tool status enumeration."""
-    UNINITIALIZED: str = 'uninitialized'
-    INITIALIZED: str = 'initialized'
-    ERROR: str = 'error'
 
 
 @dataclass
@@ -28,20 +21,11 @@ class ToolConfig:
         name: Tool name identifier
         logger: Optional logger instance for tool operations
         callback: Optional callback function for tool events
-        config: Additional tool-specific configuration
-        status: Current initialization status
+        checkpoint_path: Optional checkpoint path for tools that need persistence
     """
-    name: str
     logger: Optional[logging.Logger] = None
     callback: Optional[Callable] = None
-    config: Dict[str, Any] = field(default_factory=dict)
-    status: str = field(default=ToolStatus.UNINITIALIZED)
-
-    def __post_init__(self):
-        """Validate status on initialization."""
-        valid_statuses = [ToolStatus.UNINITIALIZED, ToolStatus.INITIALIZED, ToolStatus.ERROR]
-        if self.status not in valid_statuses:
-            raise ValueError(f"Invalid status '{self.status}'. Must be one of: {valid_statuses}")
+    checkpoint_path: Optional[Union[str, Path]] = None
 
 
 @dataclass
@@ -69,6 +53,7 @@ class BaseTool(ABC):
     This ensures a consistent interface across all tools and enables unified
     initialization and management.
     """
+    name = 'base'
 
     def __init__(self, config: Optional[ToolConfig] = None, auto_initialize: bool = True, **kwargs):
         """
@@ -81,20 +66,19 @@ class BaseTool(ABC):
                 - name: Tool name identifier (defaults to class name)
                 - logger: Optional logger instance for tool operations
                 - callback: Optional callback function for tool events
-                - config: Additional tool-specific configuration
-                - status: Initial status (defaults to UNINITIALIZED)
+                - checkpoint_path: Optional checkpoint path for persistence
         """
-        # Use class name as default if name not provided
-        if 'name' not in kwargs:
-            kwargs['name'] = self.__class__.__name__.lower().replace('tool', '')
-
         # Always create a fresh ToolConfig from kwargs
         # This simplifies the logic and avoids dataclass replace issues
         config = ToolConfig(**kwargs)
 
-        self.config = config
-        self.logger = config.logger or logging.getLogger(self.__class__.__name__)
-        self.callback = config.callback
+        # Set all config attributes as instance attributes directly
+        for key, value in config.__dict__.items():
+            setattr(self, key, value)
+
+        if self.logger is None:
+            self.logger = logging.getLogger(self.__class__.__name__)
+
         self._initialized = False
 
         # Auto-initialize by default for convenience
@@ -112,12 +96,11 @@ class BaseTool(ABC):
         This method is idempotent - calling it multiple times is safe.
         """
         if self._initialized:
-            self.logger.debug(f"Tool {self.config.name} already initialized, skipping")
+            self.logger.debug(f"Tool {self.name} already initialized, skipping")
             return
 
-        object.__setattr__(self.config, 'status', ToolStatus.INITIALIZED)
         self._initialized = True
-        self.logger.info(f"Tool {self.config.name} initialized")
+        self.logger.info(f"Tool {self.name} initialized")
 
     @abstractmethod
     def execute(self, **kwargs) -> ToolResult:
@@ -141,7 +124,7 @@ class BaseTool(ABC):
         """
         if not self._initialized:
             raise RuntimeError(
-                f"Tool {self.config.name} not initialized. "
+                f"Tool {self.name} not initialized. "
                 f"Call initialize() before execute(), or use auto_initialize=True (default)."
             )
 
