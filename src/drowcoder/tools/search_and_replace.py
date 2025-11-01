@@ -329,7 +329,7 @@ class SearchAndReplaceTool(BaseTool):
                     success=True,
                     config=config,
                     file_results=[],
-                    data="No changes needed"
+                    result="No changes needed"
                 )
 
             # Create configuration
@@ -365,10 +365,10 @@ class SearchAndReplaceTool(BaseTool):
 
             if execution_mode == ExecutionMode.PREVIEW:
                 self._handle_preview(result, style)
-                result.data = "Preview completed"
+                result.result = "Preview completed"
             else:  # APPLY
                 self._handle_apply(result, style, output_file)
-                result.data = "Apply completed"
+                result.result = "Apply completed"
 
             # Trigger callback if configured
             self._trigger_callback("search_and_replace_completed", {

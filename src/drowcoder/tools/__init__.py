@@ -55,7 +55,7 @@ class ToolManager:
         self._load_builtin_tools()
 
         # Default to use all builtin tools
-        self._active_tools = deepcopy(self._builtin_tools)
+        self._active_tools.update(deepcopy(self._builtin_tools))
 
     def _load_builtin_tools(self):
         """Load all builtin tools from YAML files"""

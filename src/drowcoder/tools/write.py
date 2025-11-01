@@ -399,7 +399,7 @@ class WriteTool(BaseTool):
             return WriteToolResult(
                 success=True,
                 config=config,
-                data="No changes needed"
+                result="No changes needed"
             )
 
         # Create configuration
@@ -444,10 +444,10 @@ class WriteTool(BaseTool):
 
             if mode_value == ExecutionMode.PREVIEW:
                 self._handle_preview(result, style_value)
-                result.data = "Preview completed"
+                result.result = "Preview completed"
             else:  # APPLY
                 self._handle_apply(result, style_value, output_file)
-                result.data = "Write operation completed"
+                result.result = "Write operation completed"
 
             # Trigger callback if configured
             self._trigger_callback("write_completed", {

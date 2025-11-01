@@ -196,7 +196,7 @@ class TestAttemptCompletionClass:
 
         assert isinstance(result, AttemptCompletionResult)
         assert result.success is True
-        assert "Task completed successfully: Test" in result.data
+        assert "Task completed successfully: Test" in result.result
 
     def test_tool_with_logger(self):
         """Test tool with custom logger."""

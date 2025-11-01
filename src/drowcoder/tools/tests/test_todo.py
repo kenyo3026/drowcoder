@@ -436,7 +436,7 @@ class TestTodoToolClass:
         # Get todos
         result = tool.get_todos()
         assert result.success is True
-        assert len(result.data) == 2
+        assert len(result.result) == 2
 
     @pytest.mark.skipif(TodoTool is None, reason="TodoTool not available in this module")
     def test_tool_update_status(self, tmp_checkpoint):

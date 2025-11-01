@@ -241,7 +241,7 @@ class TestLoadToolClass:
         result = tool.execute(str(test_file))
         assert isinstance(result, LoadResult)
         assert result.success is True
-        assert result.data == "Test content"
+        assert result.result == "Test content"
 
     def test_tool_with_logger(self, tmp_path):
         """Test tool with custom logger."""
