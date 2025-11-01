@@ -1,12 +1,25 @@
+"""
+Refactored execute tool using unified tool architecture.
+
+This module provides command execution functionality with:
+- Safe shell command execution with timeout protection
+- .drowignore file validation for security
+- Structured result output with exit codes and timing
+- Environment variable and working directory control
+- Cross-platform support (Unix/Windows)
+- Unified tool interface with BaseTool
+"""
+
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from pathlib import Path
-from typing import Optional, Dict
+from typing import Optional, Dict, Any
 import subprocess
 import time
 import os
 
+from .base import BaseTool, ToolResult
 from .utils.ignore import IGNORE_FILENAME, IgnoreController
 
 
@@ -47,11 +60,107 @@ class CommandResult:
         _dict = self.to_dict()
         return '\n'.join([f'{key}: {str(value)}' for key, value in _dict.items()])
 
-class CommandExecutor:
-    """Executes shell commands based on CommandConfig and returns structured results."""
 
-    def run(self, config: CommandConfig) -> CommandResult:
+@dataclass
+class ExecuteToolResult(ToolResult):
+    """
+    Result from execute tool execution.
 
+    Extends ToolResult with command execution-specific information.
+    """
+    command_result: Optional[CommandResult] = None
+
+
+class ExecuteTool(BaseTool):
+    """
+    Tool for executing shell commands safely.
+
+    Provides timeout protection, .drowignore validation,
+    and structured result output.
+    """
+    name = 'execute_command'
+
+    def __init__(self, **kwargs):
+        """Initialize ExecuteTool."""
+        super().__init__(**kwargs)
+
+    def execute(
+        self,
+        command: str,
+        cwd: Optional[str | Path] = None,
+        timeout_seconds: int = 0,
+        shell: bool = True,
+        env: Optional[Dict[str, str]] = None,
+        encoding: str = "utf-8",
+        combine_stdout_stderr: bool = True,
+        enable_ignore: bool = True,
+        shell_policy: str = "auto",
+    ) -> ExecuteToolResult:
+        """
+        Execute a shell command.
+
+        Args:
+            command: The bash/shell command to execute
+            cwd: Working directory (defaults to current directory)
+            timeout_seconds: Timeout in seconds (0 = no timeout)
+            shell: Execute with shell=True
+            env: Environment variables (merged with os.environ)
+            encoding: Text encoding (default: utf-8)
+            combine_stdout_stderr: Combine stderr into stdout
+            enable_ignore: Enable .drowignore validation
+            shell_policy: Shell parsing policy for .drowignore ("auto", "unix", "powershell")
+
+        Returns:
+            ExecuteToolResult with command execution details
+        """
+        self._validate_initialized()
+
+        try:
+            # Create configuration
+            config = CommandConfig(
+                command=command,
+                cwd=Path(cwd).resolve() if cwd else None,
+                timeout_seconds=timeout_seconds,
+                shell=shell,
+                env=env,
+                encoding=encoding,
+                combine_stdout_stderr=combine_stdout_stderr,
+                enable_ignore=enable_ignore,
+                shell_policy=shell_policy,
+            )
+
+            # Execute command
+            cmd_result = self._run_command(config)
+
+            # Trigger callback if configured
+            self._trigger_callback("command_executed", {
+                "command": command,
+                "exit_code": cmd_result.exit_code,
+                "duration_ms": cmd_result.duration_ms,
+                "timed_out": cmd_result.timed_out
+            })
+
+            self.logger.info(f"Command executed: {command} (exit_code={cmd_result.exit_code}, duration={cmd_result.duration_ms}ms)")
+
+            return ExecuteToolResult(
+                success=True,
+                command_result=cmd_result,
+                data=cmd_result.to_pretty_str()
+            )
+
+        except Exception as e:
+            error_msg = f"Command execution failed: {str(e)}"
+            self.logger.error(error_msg)
+
+            return ExecuteToolResult(
+                success=False,
+                error=error_msg
+            )
+
+    def _run_command(self, config: CommandConfig) -> CommandResult:
+        """Execute command based on configuration."""
+
+        # Check .drowignore validation
         if config.enable_ignore:
             controller = IgnoreController(config.cwd or Path.cwd(), shell=config.shell_policy)
             controller.load()
@@ -132,6 +241,8 @@ class CommandExecutor:
             timed_out=timed_out,
         )
 
+
+# Backward compatible function interface
 def execute_command(
     command: str,
     cwd: Optional[str | Path] = None,
@@ -143,10 +254,62 @@ def execute_command(
     enable_ignore: bool = True,
     shell_policy: str = "auto",
 ) -> CommandResult:
-    """Convenience function to run a command with minimal ceremony."""
-    cfg = CommandConfig(
+    """
+    Execute a bash/shell command and return structured output.
+
+    This is a backward-compatible wrapper around ExecuteTool.
+    Preserves the exact interface and behavior of the original function.
+
+    Features:
+    - Safe command execution with timeout protection
+    - .drowignore file validation for security
+    - Structured result with exit code and timing info
+    - Cross-platform support
+
+    Args:
+        command: The bash command to execute. Can be any valid shell command
+        cwd: Working directory (defaults to current directory)
+        timeout_seconds: Timeout in seconds (0 = no timeout)
+        shell: Execute with shell=True (default: True)
+        env: Additional environment variables to merge with os.environ
+        encoding: Text encoding for output (default: utf-8)
+        combine_stdout_stderr: Combine stderr into stdout (default: True)
+        enable_ignore: Enable .drowignore validation (default: True)
+        shell_policy: Shell parsing policy for .drowignore validation
+                     ("auto", "unix", "powershell", default: "auto")
+
+    Returns:
+        CommandResult: Structured result containing:
+            - command: The executed command
+            - cwd: Working directory
+            - exit_code: Exit code (None if process failed to start)
+            - output: Combined stdout/stderr or stdout only
+            - error: Error message (stderr if separate, timeout info)
+            - pid: Process ID
+            - duration_ms: Execution time in milliseconds
+            - timed_out: Whether the command timed out
+
+    Examples:
+        # Basic command execution
+        result = execute_command("ls -la")
+        print(f"Exit code: {result.exit_code}")
+        print(f"Output: {result.output}")
+
+        # With timeout
+        result = execute_command("sleep 10", timeout_seconds=5)
+        if result.timed_out:
+            print("Command timed out!")
+
+        # With custom working directory
+        result = execute_command("pwd", cwd="/tmp")
+
+        # With environment variables
+        result = execute_command("echo $MY_VAR", env={"MY_VAR": "hello"})
+    """
+    tool = ExecuteTool()
+    tool_result = tool.execute(
         command=command,
-        cwd=Path(cwd).resolve() if cwd else None,
+        cwd=cwd,
         timeout_seconds=timeout_seconds,
         shell=shell,
         env=env,
@@ -155,59 +318,20 @@ def execute_command(
         enable_ignore=enable_ignore,
         shell_policy=shell_policy,
     )
-    return CommandExecutor().run(cfg).to_pretty_str()
 
+    # Return CommandResult for backward compatibility
+    if tool_result.success and tool_result.command_result:
+        return tool_result.command_result
+    else:
+        # On error, return a CommandResult with error information
+        return CommandResult(
+            command=command,
+            cwd=Path(cwd).resolve() if cwd else None,
+            exit_code=1,
+            output="",
+            error=tool_result.error or "Unknown error",
+            pid=None,
+            duration_ms=0,
+            timed_out=False,
+        )
 
-if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        description="Execute Command V1 - Minimal command runner with timeout and combined output",
-    )
-    parser.add_argument("command", nargs=argparse.REMAINDER, help="Command to execute (everything after --)")
-    parser.add_argument("--cwd", type=str, default=None, help="Working directory")
-    parser.add_argument("--timeout", type=int, default=0, help="Timeout in seconds (0 = no timeout)")
-    parser.add_argument("--no-shell", action="store_true", help="Run without shell=True")
-    parser.add_argument("--no-ignore", action="store_true", help=f"Disable {IGNORE_FILENAME} validation")
-    parser.add_argument("--shell-policy", choices=["auto", "unix", "powershell"], default="auto", help=f"Command parsing policy for {IGNORE_FILENAME} validation")
-
-    args = parser.parse_args()
-
-    # Allow usage like: python execute_command_v1.py -- echo hello
-    if not args.command:
-        parser.print_help()
-        raise SystemExit(2)
-
-    # If the first token is a standalone "--", drop it (common delimiter pattern)
-    if args.command and args.command[0] == "--":
-        args.command = args.command[1:]
-
-    cmd_str = " ".join(args.command)
-
-    result = execute_command(
-        command=cmd_str,
-        cwd=args.cwd,
-        timeout_seconds=args.timeout,
-        shell=not args.no_shell,
-        enable_ignore=not args.no_ignore,
-        shell_policy=args.shell_policy,
-    )
-
-    print("=== Execute Command Result ===")
-    print(f"Command   : {result.command}")
-    print(f"CWD       : {result.cwd}")
-    print(f"PID       : {result.pid}")
-    print(f"Exit code : {result.exit_code}")
-    print(f"Duration  : {result.duration_ms} ms")
-    print(f"Timed out : {result.timed_out}")
-    if result.output:
-        print("\n--- Output (stdout/stderr) ---")
-        print(result.output)
-    if result.error:
-        print("\n--- Error ---")
-        print(result.error)
-
-    # Propagate meaningful exit status
-    if result.timed_out:
-        os._exit(124)  # conventional timeout exit code
-    os._exit(result.exit_code if isinstance(result.exit_code, int) else 1)
