@@ -10,7 +10,6 @@ This module provides a comprehensive todo system with:
 
 import json
 import pathlib
-import warnings
 from dataclasses import dataclass, asdict
 from typing import List, Union, Dict, Any, Optional
 
@@ -47,23 +46,9 @@ class TodoItem:
 
 
 @dataclass
-class TodoConfig(ToolConfig):
-    """
-    Configuration for todo tool.
-
-    Attributes:
-        checkpoint_path: Path to save/load todos
-    """
-    checkpoint_path: Optional[Union[str, pathlib.Path]] = None
-
-
-@dataclass
 class TodoResult(ToolResult):
     """
     Result from todo tool execution.
-
-    Attributes:
-        todos: List of todo items (for get_todos operation)
     """
     todos: Optional[List[Dict[str, Any]]] = None
 
@@ -72,31 +57,29 @@ class TodoTool(BaseTool):
     """
     Tool for managing structured todo lists in coding sessions.
 
-    This tool provides update, get, and status update operations for todos.
-    """
+    This tool provides update operations for todos.
 
-    def __init__(self, checkpoint_path: Optional[Union[str, pathlib.Path]] = None, **kwargs):
+    Requires checkpoint_path to be provided in config for persistence.
+    """
+    name = 'todo'
+
+    def __init__(self, **kwargs):
         """
-        Initialize TodoTool with optional checkpoint path.
+        Initialize TodoTool.
 
         Args:
-            checkpoint_path: Optional default checkpoint path
-            **kwargs: Additional configuration parameters
+            **kwargs: Configuration parameters (name, logger, callback, checkpoint_path, etc.)
+                checkpoint_path is required for this tool.
+
+        Raises:
+            ValueError: If checkpoint_path is not provided
         """
-        if 'name' not in kwargs:
-            kwargs['name'] = 'todo'
-
-        # Initialize with base class
         super().__init__(**kwargs)
-
-        # Store checkpoint_path as instance attribute
-        self.checkpoint_path = checkpoint_path
-
-    def initialize(self) -> None:
-        """Initialize the todo tool."""
-        super().initialize()
-        if self._initialized:
-            self.logger.debug("TodoTool initialized")
+        if self.checkpoint_path is None:
+            raise ValueError(
+                "TodoTool requires checkpoint_path to be provided in config. "
+                "Please provide checkpoint_path when initializing TodoTool."
+            )
 
     def validate_todo_items(self, todos: List[Dict[str, Any]]) -> List[TodoItem]:
         """
@@ -183,69 +166,20 @@ class TodoTool(BaseTool):
 
         return result
 
-    def load_existing_todos(self, checkpoint_path: Union[str, pathlib.Path]) -> List[TodoItem]:
-        """
-        Load existing todo items from checkpoint file.
-
-        Args:
-            checkpoint_path: Path to the todo checkpoint file
-
-        Returns:
-            List of existing TodoItem objects, empty list if file doesn't exist
-
-        Raises:
-            IOError: If file exists but cannot be read or parsed
-        """
-        checkpoint_path = pathlib.Path(checkpoint_path)
-
-        if not checkpoint_path.exists():
-            warnings.warn(
-                f"Todo checkpoint file not found: {checkpoint_path}. Returning empty list.",
-                UserWarning,
-                stacklevel=2
-            )
-            return []
-
-        try:
-            with open(checkpoint_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-
-            if not isinstance(data, list):
-                raise ValueError("Checkpoint file must contain a list of todo items")
-
-            existing_todos = []
-            for item in data:
-                if isinstance(item, dict) and all(k in item for k in ['id', 'content', 'status']):
-                    filtered_item = {
-                        'id': item['id'],
-                        'content': item['content'],
-                        'status': item['status']
-                    }
-                    existing_todos.append(TodoItem(**filtered_item))
-
-            return existing_todos
-
-        except json.JSONDecodeError as e:
-            raise IOError(f"Invalid JSON in checkpoint file {checkpoint_path}: {e}")
-        except Exception as e:
-            raise IOError(f"Failed to load checkpoint file {checkpoint_path}: {e}")
-
     def save_todos_to_checkpoint(
         self,
-        todos: List[TodoItem],
-        checkpoint_path: Union[str, pathlib.Path]
+        todos: List[TodoItem]
     ) -> None:
         """
         Save todo items to checkpoint file.
 
         Args:
             todos: List of TodoItem objects to save
-            checkpoint_path: Path to save the checkpoint file
 
         Raises:
             IOError: If failed to write to checkpoint file
         """
-        checkpoint_path = pathlib.Path(checkpoint_path)
+        checkpoint_path = pathlib.Path(self.checkpoint_path)
         checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
 
         try:
@@ -262,7 +196,6 @@ class TodoTool(BaseTool):
         self,
         merge: bool,
         todos: List[Dict[str, Any]],
-        checkpoint_path: Optional[Union[str, pathlib.Path]] = None,
         **kwargs
     ) -> TodoResult:
         """
@@ -274,19 +207,17 @@ class TodoTool(BaseTool):
         Args:
             merge: Whether to merge with existing todos or replace them
             todos: Array of todo items with id, content, and status fields
-            checkpoint_path: Path to save todos
-            **kwargs: Additional parameters
+            **kwargs: Additional parameters (ignored for compatibility)
 
         Returns:
             TodoResult from update_todos operation
         """
-        return self.update_todos(merge=merge, todos=todos, checkpoint_path=checkpoint_path, **kwargs)
+        return self.update_todos(merge=merge, todos=todos, **kwargs)
 
     def update_todos(
         self,
         merge: bool,
         todos: List[Dict[str, Any]],
-        checkpoint_path: Optional[Union[str, pathlib.Path]] = None,
         **kwargs
     ) -> TodoResult:
         """
@@ -295,40 +226,54 @@ class TodoTool(BaseTool):
         Args:
             merge: Whether to merge with existing todos (True) or replace them (False)
             todos: Array of todo items with id, content, and status fields
-            checkpoint_path: Path to save todos (uses config default if not provided)
             **kwargs: Additional parameters (ignored for compatibility)
 
         Returns:
             TodoResult with success status and message
 
         Raises:
-            ValueError: If todo items are invalid or checkpoint_path not provided
+            ValueError: If todo items are invalid
             IOError: If checkpoint file operations fail
         """
         self._validate_initialized()
-
-        # Get checkpoint path
-        if checkpoint_path is None:
-            checkpoint_path = self.checkpoint_path
-        if checkpoint_path is None:
-            raise ValueError("checkpoint_path must be provided either in config or as parameter")
 
         try:
             # Validate input todos
             validated_todos = self.validate_todo_items(todos)
 
             # Convert checkpoint_path to Path object
-            checkpoint_path = pathlib.Path(checkpoint_path)
+            checkpoint_path = pathlib.Path(self.checkpoint_path)
 
             # Handle merge vs replace logic
             if merge:
-                existing_todos = self.load_existing_todos(checkpoint_path)
+                # Load existing todos from checkpoint file
+                existing_todos = []
+                if checkpoint_path.exists():
+                    try:
+                        with open(checkpoint_path, 'r', encoding='utf-8') as f:
+                            data = json.load(f)
+
+                        if not isinstance(data, list):
+                            raise ValueError("Checkpoint file must contain a list of todo items")
+
+                        for item in data:
+                            if isinstance(item, dict) and all(k in item for k in ['id', 'content', 'status']):
+                                existing_todos.append(TodoItem(
+                                    id=item['id'],
+                                    content=item['content'],
+                                    status=item['status']
+                                ))
+                    except json.JSONDecodeError as e:
+                        raise IOError(f"Invalid JSON in checkpoint file {checkpoint_path}: {e}")
+                    except Exception as e:
+                        raise IOError(f"Failed to load checkpoint file {checkpoint_path}: {e}")
+
                 final_todos = self.merge_todo_items(existing_todos, validated_todos)
             else:
                 final_todos = validated_todos
 
             # Save to checkpoint
-            self.save_todos_to_checkpoint(final_todos, checkpoint_path)
+            self.save_todos_to_checkpoint(final_todos)
 
             message = ("Successfully updated TODOs. Make sure to follow and update your TODO list "
                       "as you make progress. Cancel and add new TODO tasks as needed when the user "
@@ -368,137 +313,6 @@ class TodoTool(BaseTool):
                 metadata={'operation': 'update_todos'}
             )
 
-    def get_todos(self, checkpoint_path: Optional[Union[str, pathlib.Path]] = None) -> TodoResult:
-        """
-        Load and retrieve TODO list from checkpoint file.
-
-        Args:
-            checkpoint_path: Path to the TODO checkpoint file
-
-        Returns:
-            TodoResult with list of TODO dictionaries
-
-        Raises:
-            ValueError: If checkpoint_path not provided
-        """
-        self._validate_initialized()
-
-        # Get checkpoint path
-        if checkpoint_path is None:
-            checkpoint_path = self.checkpoint_path
-        if checkpoint_path is None:
-            raise ValueError("checkpoint_path must be provided either in config or as parameter")
-
-        checkpoint_path = pathlib.Path(checkpoint_path)
-
-        if not checkpoint_path.exists():
-            return TodoResult(
-                success=False,
-                error=f"TODO file not found: {checkpoint_path}",
-                metadata={'operation': 'get_todos'}
-            )
-
-        try:
-            todos = self.load_existing_todos(checkpoint_path)
-            todos_data = [asdict(todo) for todo in todos]
-
-            return TodoResult(
-                success=True,
-                data=todos_data,
-                todos=todos_data,
-                metadata={
-                    'todos_count': len(todos_data),
-                    'checkpoint_path': str(checkpoint_path)
-                }
-            )
-        except IOError as e:
-            self.logger.error(f"Failed to load todos: {e}")
-            return TodoResult(
-                success=False,
-                error=str(e),
-                metadata={'operation': 'get_todos'}
-            )
-
-    def update_todo_status(
-        self,
-        todo_id: str,
-        status_to: str,
-        checkpoint_path: Optional[Union[str, pathlib.Path]] = None
-    ) -> TodoResult:
-        """
-        Update the status of a specific todo item by ID.
-
-        Args:
-            todo_id: ID of the todo item to update
-            status_to: Status value for update
-            checkpoint_path: Path to checkpoint file
-
-        Returns:
-            TodoResult with success status and message
-        """
-        self._validate_initialized()
-
-        # Get checkpoint path
-        if checkpoint_path is None:
-            checkpoint_path = self.checkpoint_path
-        if checkpoint_path is None:
-            raise ValueError("checkpoint_path must be provided either in config or as parameter")
-
-        # Validate status
-        if status_to not in TodoStatusType.values():
-            return TodoResult(
-                success=False,
-                error=f"Invalid status: {status_to}",
-                metadata={'operation': 'update_todo_status'}
-            )
-
-        try:
-            # Load existing todos
-            existing_todos = self.load_existing_todos(checkpoint_path)
-
-            # Find and update the todo
-            updated = False
-            for i, todo in enumerate(existing_todos):
-                if todo.id == todo_id:
-                    updated_todo = TodoItem(
-                        id=todo.id,
-                        content=todo.content,
-                        status=status_to
-                    )
-                    existing_todos[i] = updated_todo
-                    updated = True
-                    break
-
-            if not updated:
-                return TodoResult(
-                    success=False,
-                    error=f"Todo with ID '{todo_id}' not found",
-                    metadata={'operation': 'update_todo_status'}
-                )
-
-            # Save updated todos
-            self.save_todos_to_checkpoint(existing_todos, checkpoint_path)
-
-            message = f"Successfully updated todo '{todo_id}' status to '{status_to}'"
-
-            return TodoResult(
-                success=True,
-                data=message,
-                metadata={
-                    'todo_id': todo_id,
-                    'status': status_to,
-                    'checkpoint_path': str(checkpoint_path)
-                }
-            )
-
-        except IOError as e:
-            self.logger.error(f"Failed to update todo status: {e}")
-            return TodoResult(
-                success=False,
-                error=str(e),
-                metadata={'operation': 'update_todo_status'}
-            )
-
 
 # Backward-compatible function interfaces
 def update_todos(
@@ -524,72 +338,10 @@ def update_todos(
         IOError: If checkpoint file operations fail
     """
     tool = TodoTool(checkpoint_path=checkpoint_path)
-    result = tool.execute(merge=merge, todos=todos, checkpoint_path=checkpoint_path)
+    result = tool.execute(merge=merge, todos=todos)
 
     if not result.success:
         if isinstance(result.error, str) and 'Invalid' in result.error:
-            raise ValueError(result.error)
-        else:
-            raise IOError(result.error)
-
-    return result.data
-
-
-def get_todos(checkpoint_path: Union[str, pathlib.Path]) -> List[Dict[str, Any]]:
-    """
-    Load and retrieve TODO list from checkpoint file.
-
-    This is the backward-compatible function interface.
-
-    Args:
-        checkpoint_path: Path to the TODO checkpoint file
-
-    Returns:
-        List of TODO dictionaries
-
-    Raises:
-        FileNotFoundError: If the TODO file does not exist
-        IOError: If failed to read or parse the TODO file
-    """
-    tool = TodoTool(checkpoint_path=checkpoint_path)
-    result = tool.get_todos(checkpoint_path=checkpoint_path)
-
-    if not result.success:
-        if 'not found' in result.error.lower():
-            raise FileNotFoundError(result.error)
-        else:
-            raise IOError(result.error)
-
-    return result.data
-
-
-def update_todo_status(
-    todo_id: str,
-    status_to: str,
-    checkpoint_path: Union[str, pathlib.Path]
-) -> str:
-    """
-    Update the status of a specific todo item by ID.
-
-    This is the backward-compatible function interface.
-
-    Args:
-        todo_id: ID of the todo item to update
-        status_to: Status value for update
-        checkpoint_path: Path to checkpoint file
-
-    Returns:
-        Success message
-
-    Raises:
-        ValueError: If todo_id not found or invalid status
-        IOError: If checkpoint operations fail
-    """
-    tool = TodoTool(checkpoint_path=checkpoint_path)
-    result = tool.update_todo_status(todo_id=todo_id, status_to=status_to, checkpoint_path=checkpoint_path)
-
-    if not result.success:
-        if 'Invalid status' in result.error or 'not found' in result.error:
             raise ValueError(result.error)
         else:
             raise IOError(result.error)

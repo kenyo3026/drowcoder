@@ -42,30 +42,7 @@ class AttemptCompletionTool(BaseTool):
     This is the simplest tool in the system, serving as a signal
     that the agent has completed the requested task.
     """
-
-    def __init__(self, **kwargs):
-        """
-        Initialize the attempt_completion tool.
-
-        Args:
-            **kwargs: Configuration parameters (name, logger, callback, etc.)
-        """
-        # Set default name if not provided
-        if 'name' not in kwargs:
-            kwargs['name'] = 'attempt_completion'
-
-        super().__init__(**kwargs)
-
-    def initialize(self) -> None:
-        """
-        Initialize the tool.
-
-        Called automatically in __init__.
-        For this simple tool, no special initialization is needed.
-        """
-        super().initialize()
-        if self._initialized:  # Only log on first initialization
-            self.logger.debug("AttemptCompletionTool initialized (no special setup required)")
+    name = 'attempt_completion'
 
     def execute(self, result: str, **kwargs) -> AttemptCompletionResult:
         """
@@ -100,7 +77,7 @@ class AttemptCompletionTool(BaseTool):
                 data=message,
                 result_description=result,
                 metadata={
-                    "tool": "attempt_completion",
+                    "tool": self.name,
                     "result_length": len(result)
                 }
             )
@@ -140,56 +117,4 @@ def attempt_completion(result: str) -> str:
         return result_obj.data
     else:
         return f"Error: {result_obj.error}"
-
-
-# Example usage and testing
-if __name__ == "__main__":
-    import logging
-
-    # Configure logging
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
-
-    print("=== Testing AttemptCompletionTool ===\n")
-
-    # Test 1: Basic usage with class interface
-    print("Test 1: Class interface")
-    tool = AttemptCompletionTool(
-        name="attempt_completion",
-        logger=logging.getLogger("test")
-    )
-
-    result = tool.execute(result="Implemented new feature successfully")
-    print(f"Success: {result.success}")
-    print(f"Message: {result.data}")
-    print(f"Metadata: {result.metadata}\n")
-
-    # Test 2: Backward compatible function interface
-    print("Test 2: Backward compatible function interface")
-    message = attempt_completion("Fixed bug in authentication module")
-    print(f"Message: {message}\n")
-
-    # Test 3: With callback
-    print("Test 3: With callback")
-    def my_callback(event: str, data: dict):
-        print(f"  Callback triggered - Event: {event}, Data: {data}")
-
-    tool_with_callback = AttemptCompletionTool(
-        name="attempt_completion",
-        callback=my_callback
-    )
-    result = tool_with_callback.execute(result="Refactored codebase")
-    print(f"Success: {result.success}\n")
-
-    # Test 4: Error handling - calling execute before initialize
-    print("Test 4: Error handling - not initialized")
-    try:
-        uninitialized_tool = AttemptCompletionTool(auto_initialize=False)
-        uninitialized_tool.execute(result="This should fail")
-    except RuntimeError as e:
-        print(f"Caught expected error: {e}\n")
-
-    print("=== All tests completed ===")
 
