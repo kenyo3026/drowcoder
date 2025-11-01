@@ -1,7 +1,7 @@
 tools:
   - type: function
     function:
-      name: write_file
+      name: write
       description: |
         File writing with flexible operation modes and safety features.
         This function provides multiple file operations including create, overwrite, append, and prepend.

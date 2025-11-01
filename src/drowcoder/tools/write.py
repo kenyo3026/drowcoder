@@ -596,7 +596,7 @@ class WriteTool(BaseTool):
 
 
 # Backward compatible function interface
-def write_file(
+def write(
     file_path: Union[str, Path],
     content: str,
     mode: str = "apply",
@@ -653,22 +653,22 @@ def write_file(
 
     Examples:
         # Create new file
-        write_file("new_file.txt", "Hello World", operation="create")
+        write("new_file.txt", "Hello World", operation="create")
 
         # Preview overwrite
-        write_file("existing.txt", "New content", mode="preview")
+        write("existing.txt", "New content", mode="preview")
 
         # Append to file
-        write_file("log.txt", "\\nNew log entry", operation="append")
+        write("log.txt", "\\nNew log entry", operation="append")
 
         # Prepend to file
-        write_file("file.txt", "Header content\\n", operation="prepend")
+        write("file.txt", "Header content\\n", operation="prepend")
 
         # Git conflict style for VS Code
-        write_file("file.txt", "new content", output_style="git_conflict", mode="preview")
+        write("file.txt", "new content", output_style="git_conflict", mode="preview")
 
         # Custom output file
-        write_file("source.txt", "content", output_file="output.txt")
+        write("source.txt", "content", output_file="output.txt")
     """
     # Validate mode parameter
     valid_modes = ["preview", "apply", "preview_and_ask"]
