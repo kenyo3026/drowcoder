@@ -415,7 +415,7 @@ class SearchTool(BaseTool):
 
             return SearchToolResult(
                 success=True,
-                data=formatted_output,
+                result=formatted_output,
                 results=results if not as_text and not as_graph else None,
                 files_found=files_found,
                 total_matches=total_matches,
@@ -594,7 +594,7 @@ def search_file(
     if not result.success:
         raise RuntimeError(result.error) if result.error else RuntimeError("Search failed")
 
-    return result.data
+    return result.result
 
 
 def format_results_to_pretty_str(

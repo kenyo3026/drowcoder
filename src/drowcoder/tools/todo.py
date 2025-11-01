@@ -290,7 +290,7 @@ class TodoTool(BaseTool):
 
             return TodoResult(
                 success=True,
-                data=message,
+                result=message,
                 metadata={
                     'merge': merge,
                     'todos_count': len(final_todos),
@@ -346,6 +346,6 @@ def update_todos(
         else:
             raise IOError(result.error)
 
-    return result.data
+    return result.result
 
 

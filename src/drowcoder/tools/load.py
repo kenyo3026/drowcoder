@@ -20,7 +20,7 @@ class LoadResult(ToolResult):
 
     Attributes:
         success: Whether the file loading succeeded
-        data: The file content as string
+        result: The file content as string
         file_path: The resolved file path that was loaded
         file_size: Size of the loaded file in bytes
     """
@@ -75,7 +75,7 @@ class LoadTool(BaseTool):
 
                 return LoadResult(
                     success=False,
-                    data=error_msg,
+                    result=error_msg,
                     error=error_msg,
                     file_path=str(path_obj)
                 )
@@ -98,7 +98,7 @@ class LoadTool(BaseTool):
 
             return LoadResult(
                 success=True,
-                data=content,
+                result=content,
                 file_path=str(path_obj),
                 file_size=file_size,
                 metadata={
@@ -114,7 +114,7 @@ class LoadTool(BaseTool):
 
             return LoadResult(
                 success=False,
-                data=error_msg,
+                result=error_msg,
                 error=error_msg,
                 file_path=file_path
             )
@@ -125,7 +125,7 @@ class LoadTool(BaseTool):
 
             return LoadResult(
                 success=False,
-                data=error_msg,
+                result=error_msg,
                 error=error_msg,
                 file_path=file_path
             )
@@ -160,6 +160,6 @@ def load(file_path: str, ensure_abs: bool = True) -> str:
     # Execute and return data
     result_obj = tool.execute(file_path=file_path, ensure_abs=ensure_abs)
 
-    # Return data (which includes error message if failed)
-    return result_obj.data
+    # Return result (which includes error message if failed)
+    return result_obj.result
 

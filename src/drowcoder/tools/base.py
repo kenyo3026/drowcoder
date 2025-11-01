@@ -35,12 +35,12 @@ class ToolResult:
 
     Attributes:
         success: Whether the tool execution succeeded
-        data: The actual result data from the tool
+        result: The actual result data from the tool
         error: Error message if execution failed
         metadata: Additional metadata about the execution
     """
     success: bool
-    data: Any = None
+    result: Any = None
     error: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 

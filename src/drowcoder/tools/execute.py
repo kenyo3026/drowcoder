@@ -145,7 +145,7 @@ class ExecuteTool(BaseTool):
             return ExecuteToolResult(
                 success=True,
                 command_result=cmd_result,
-                data=cmd_result.to_pretty_str()
+                result=cmd_result.to_pretty_str()
             )
 
         except Exception as e:

@@ -29,7 +29,7 @@ class AttemptCompletionResult(ToolResult):
 
     Attributes:
         success: Whether the completion marking succeeded
-        data: Confirmation message
+        result: Confirmation message
         result_description: The user-provided result description
     """
     result_description: Optional[str] = None
@@ -74,7 +74,7 @@ class AttemptCompletionTool(BaseTool):
 
             return AttemptCompletionResult(
                 success=True,
-                data=message,
+                result=message,
                 result_description=result,
                 metadata={
                     "tool": self.name,
@@ -114,7 +114,7 @@ def attempt_completion(result: str) -> str:
     result_obj = tool.execute(result=result)
 
     if result_obj.success:
-        return result_obj.data
+        return result_obj.result
     else:
         return f"Error: {result_obj.error}"
 
