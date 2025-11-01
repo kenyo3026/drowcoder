@@ -1,11 +1,23 @@
+"""
+Refactored search tool using unified tool architecture.
+
+This module provides file content search functionality with:
+- Regex pattern matching in file contents
+- File pattern filtering (glob patterns)
+- Workspace boundary checking
+- Tree graph and text output formats
+- Unified tool interface with BaseTool
+"""
+
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List
+from typing import List, Optional, Union, Dict, Any
 
 from path_tree_graph import PathTree, PathTreeNode, TreeGraph
 
+from .base import BaseTool, ToolResult
 from .utils.ext import EXT_PATTERNS_FOR_BASE_EXCLUDE
 from .utils.ignore import IgnoreController
 
@@ -21,6 +33,7 @@ class LineMeta:
     """
     line: int
     text: str
+
 
 @dataclass
 class FileMatchMeta:
@@ -59,6 +72,7 @@ class FileMatchMeta:
 
         return formatted_str
 
+
 class PathTreeNodeForSearchTool(PathTreeNode):
     """
     Extended PathTreeNode that can store search result metadata.
@@ -93,6 +107,7 @@ class PathTreeNodeForSearchTool(PathTreeNode):
         if child_name not in self.children:
             self.children[child_name] = PathTreeNodeForSearchTool(child_name, is_leaf, meta or {})
         return self.children[child_name]
+
 
 class PathTreeForSearchTool(PathTree):
     """
@@ -166,6 +181,7 @@ class PathTreeForSearchTool(PathTree):
             )
         return formatted_str
 
+
 class TreeGraphForSearchTool(TreeGraph):
     """
     Tree graph specialized for search results visualization.
@@ -203,29 +219,324 @@ class TreeGraphForSearchTool(TreeGraph):
 
         return tree
 
-def is_within_workspace(path: str, workspace_root: str) -> bool:
+
+@dataclass
+class SearchToolResult(ToolResult):
     """
-    Determine whether the given path is inside the workspace directory.
+    Result from search tool execution.
 
-    Args:
-        path (str): The path to check. Can be relative or absolute.
-        workspace_root (str): The absolute path to the workspace root directory.
-
-    Returns:
-        bool: True if path is inside the workspace root, False otherwise.
+    Extends ToolResult with search-specific information.
     """
-    # Resolve both paths to their absolute canonical form
-    path = Path(path).resolve()
-    workspace_root = Path(workspace_root).resolve()
+    results: Optional[List[FileMatchMeta]] = None
+    files_found: int = 0
+    total_matches: int = 0
 
-    try:
-        # If no exception, path is within the workspace
-        path.relative_to(workspace_root)
-        return True
-    except ValueError:
-        # If ValueError is raised, path is outside workspace_root
-        return False
 
+class SearchTool(BaseTool):
+    """
+    Tool for searching content patterns in files.
+
+    Supports regex pattern matching, file pattern filtering,
+    workspace boundary checking, and multiple output formats.
+    """
+    name = 'search'
+
+    def execute(
+        self,
+        path: str,
+        content_pattern: str,
+        filepath_pattern: str = "*",
+        cwd: Optional[str] = None,
+        max_matches_per_file: int = 10,
+        enable_search_outside: bool = True,
+        as_text: bool = True,
+        as_graph: bool = True,
+        only_filename: bool = False,
+        enable_ignore: bool = True,
+        shell_policy: str = "auto",
+        **kwargs
+    ) -> SearchToolResult:
+        """
+        Execute search operation.
+
+        Args:
+            path: Directory or file path to search
+            content_pattern: Regex pattern to search for in file contents
+            filepath_pattern: File pattern to match (e.g., "*.py", "*.txt")
+            cwd: Working directory (workspace root). Defaults to current directory
+            max_matches_per_file: Maximum number of matches to display per file
+            enable_search_outside: Allow searching outside workspace
+            as_text: Return formatted text or raw results when as_graph=False
+            as_graph: Use tree graph format for displaying results (takes precedence over as_text)
+            only_filename: If True, only return filename and match count; if False, return detailed content
+            enable_ignore: Enable .drowignore file filtering
+            shell_policy: Shell policy for command parsing (auto/unix/powershell)
+            **kwargs: Additional parameters (ignored for compatibility)
+
+        Returns:
+            SearchToolResult with search results and metadata
+        """
+        self._validate_initialized()
+
+        try:
+            # Handle cwd
+            cwd = Path(cwd or os.getcwd()).expanduser().resolve()
+            if not cwd.exists():
+                raise FileNotFoundError(f"Working directory does not exist: {cwd}")
+            if not cwd.is_dir():
+                raise ValueError(f"Working directory is not a directory: {cwd}")
+
+            # Handle path
+            search_path = Path(path).expanduser().resolve()
+            if not search_path.exists():
+                raise FileNotFoundError(f"Path does not exist: {search_path}")
+
+            path_is_within_cwd = self._is_within_workspace(str(search_path), str(cwd))
+            if not enable_search_outside and not path_is_within_cwd:
+                raise ValueError(f"Path '{search_path}' is outside workspace '{cwd}' and external search is disabled")
+
+            # Initialize ignore controller if needed
+            controller = None
+            if enable_ignore:
+                controller = IgnoreController(cwd, shell=shell_policy)
+                controller.load()
+
+            def is_file_ignored(file_path_obj) -> bool:
+                """Check if a file is ignored by .drowignore patterns"""
+                if not controller:
+                    return False
+                try:
+                    rel_path = os.path.relpath(str(file_path_obj), cwd)
+                    return not controller.validate_access(rel_path)
+                except Exception:
+                    # If path processing fails, conservatively allow the file
+                    return False
+
+            # Determine files to search
+            if search_path.is_file():
+                # Check single file against ignore patterns
+                if is_file_ignored(search_path):
+                    files_to_search = []
+                else:
+                    files_to_search = [str(search_path)]
+
+            elif search_path.is_dir():
+                # Use Path rglob with smart exclusion patterns
+                base_path = Path(search_path)
+                files_to_search = []
+
+                # Pre-process exclusion patterns for better performance
+                dir_patterns = [p.rstrip('/') for p in EXT_PATTERNS_FOR_BASE_EXCLUDE if p.endswith('/')]
+                file_patterns = [p.lstrip('*') for p in EXT_PATTERNS_FOR_BASE_EXCLUDE if not p.endswith('/')]
+
+                # Use rglob with filepath_pattern, then filter efficiently
+                for file_path in base_path.rglob(filepath_pattern):
+                    if not file_path.is_file():
+                        continue
+
+                    # Quick directory exclusion check
+                    path_parts = file_path.parts
+                    if any(any(pattern in part for part in path_parts) for pattern in dir_patterns):
+                        continue
+
+                    # Quick filename exclusion check
+                    if any(file_path.name.endswith(pattern) for pattern in file_patterns):
+                        continue
+
+                    # Check .drowignore patterns
+                    if is_file_ignored(file_path):
+                        continue
+
+                    files_to_search.append(str(file_path))
+            else:
+                raise FileNotFoundError(f"Path does not exist: {search_path}")
+
+            # Search for content pattern
+            results = []
+            # Compile pattern - re.error will propagate naturally for invalid regex
+            try:
+                pattern = re.compile(content_pattern)
+            except re.error:
+                # Re-raise regex errors directly (matches original behavior)
+                raise
+
+            for file_path in files_to_search:
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        file_matches = []
+                        file_total_lines = 0
+                        for line_num, line in enumerate(f, 1):
+                            file_total_lines = line_num
+                            if pattern.search(line):
+                                file_matches.append(LineMeta(
+                                    line=line_num,
+                                    text=line.strip(),
+                                ))
+
+                        if file_matches:
+                            results.append(FileMatchMeta(
+                                file=file_path,
+                                matches=file_matches,
+                                total_lines=file_total_lines,
+                            ))
+                except Exception as e:
+                    self.logger.warning(f"Error reading file {file_path}: {e}")
+
+            # Format results based on output format
+            if as_graph:
+                formatted_output = self._format_results_to_pretty_graph(
+                    results,
+                    max_matches_per_file=max_matches_per_file,
+                    only_filename=only_filename,
+                    as_text=as_text
+                )
+            elif as_text:
+                formatted_output = self._format_results_to_pretty_str(
+                    results,
+                    max_matches_per_file=max_matches_per_file,
+                    only_filename=only_filename,
+                )
+            else:
+                formatted_output = results
+
+            # Calculate statistics
+            total_matches = sum(len(r.matches) for r in results)
+            files_found = len(results)
+
+            # Trigger callback if configured
+            self._trigger_callback("search_completed", {
+                "path": str(search_path),
+                "content_pattern": content_pattern,
+                "files_found": files_found,
+                "total_matches": total_matches
+            })
+
+            self.logger.info(f"Search completed: {files_found} files found, {total_matches} total matches")
+
+            return SearchToolResult(
+                success=True,
+                data=formatted_output,
+                results=results if not as_text and not as_graph else None,
+                files_found=files_found,
+                total_matches=total_matches,
+                metadata={
+                    "tool": self.name,
+                    "path": str(search_path),
+                    "content_pattern": content_pattern,
+                    "filepath_pattern": filepath_pattern
+                }
+            )
+
+        except re.error as e:
+            # Re-raise regex errors directly (matches original behavior)
+            raise
+        except Exception as e:
+            error_msg = f"Search failed: {str(e)}"
+            self.logger.error(error_msg)
+
+            return SearchToolResult(
+                success=False,
+                error=error_msg,
+                files_found=0,
+                total_matches=0
+            )
+
+    def _is_within_workspace(self, path: str, workspace_root: str) -> bool:
+        """
+        Determine whether the given path is inside the workspace directory.
+
+        Args:
+            path: The path to check. Can be relative or absolute.
+            workspace_root: The absolute path to the workspace root directory.
+
+        Returns:
+            bool: True if path is inside the workspace root, False otherwise.
+        """
+        # Resolve both paths to their absolute canonical form
+        path = Path(path).resolve()
+        workspace_root = Path(workspace_root).resolve()
+
+        try:
+            # If no exception, path is within the workspace
+            path.relative_to(workspace_root)
+            return True
+        except ValueError:
+            # If ValueError is raised, path is outside workspace_root
+            return False
+
+    def _format_results_to_pretty_str(
+        self,
+        results: List[FileMatchMeta],
+        max_matches_per_file: int = 10,
+        only_filename: bool = False,
+    ) -> str:
+        """
+        Format search results as readable text in traditional list format.
+
+        Args:
+            results: List of file search results
+            max_matches_per_file: Maximum number of matches to display per file
+            only_filename: If True, only show filenames without match content
+
+        Returns:
+            str: Formatted string with file paths and match content
+        """
+        if not results:
+            return "No matching results found"
+
+        output = f"Found {len(results)} files with matches\n\n"
+
+        for file_result in results:
+            relative_path = os.path.relpath(file_result.file)
+
+            if (len_matches:=len(file_result.matches)) == file_result.total_lines:
+                header = f"# {relative_path} (entire file content returned)\n"
+            else:
+                header = f"# {relative_path} ({len_matches} matches)\n"
+
+            output += header
+            if not only_filename:
+                output += file_result.format_matches(max_matches_per_file=max_matches_per_file)
+            output += '\n'
+        return output
+
+    def _format_results_to_pretty_graph(
+        self,
+        results: List[FileMatchMeta],
+        max_matches_per_file: int = 10,
+        only_filename: bool = False,
+        as_text: bool = True,
+    ):
+        """
+        Format search results as a tree structure for better visualization.
+
+        Args:
+            results: List of file search results
+            max_matches_per_file: Maximum number of matches to display per file
+            only_filename: If True, only show filenames without match content
+            as_text: If True, return formatted string; if False, return tree object
+
+        Returns:
+            str or PathTreeForSearchTool:
+                - If as_text=True: Formatted tree string
+                - If as_text=False: PathTreeForSearchTool object
+        """
+        if not results:
+            return "No matching results found"
+
+        tree = TreeGraphForSearchTool.from_paths(results)
+
+        if as_text:
+            output = f"Found {len(results)} files with matches\n\n"
+            output += tree.format(
+                only_filename=only_filename,
+                max_matches_per_file=max_matches_per_file,
+            )
+            return output
+        return tree
+
+
+# Backward compatible function interface
 def search_file(
     path: str,
     content_pattern: str,
@@ -242,18 +553,21 @@ def search_file(
     """
     Search for content patterns in files within specified path and workspace constraints.
 
+    This is a backward-compatible wrapper around SearchTool.
+    Preserves the exact interface and behavior of the original function.
+
     Args:
-        path (str): Directory or file path to search
-        content_pattern (str): Regex pattern to search for in file contents
-        filepath_pattern (str): File pattern to match (e.g., "*.py", "*.txt")
-        cwd (str, optional): Working directory (workspace root). Defaults to current directory
-        max_matches_per_file (int): Maximum number of matches to display per file
-        enable_search_outside (bool): Allow searching outside workspace
-        as_text (bool): Return formatted text or raw results when as_graph=False
-        as_graph (bool): Use tree graph format for displaying results (takes precedence over as_text)
-        only_filename (bool): If True, only return filename and match count; if False, return detailed content
-        enable_ignore (bool): Enable .drowignore file filtering. When true, files matching patterns in .drowignore will be excluded from search
-        shell_policy (str): Shell policy for command parsing (auto/unix/powershell)
+        path: Directory or file path to search
+        content_pattern: Regex pattern to search for in file contents
+        filepath_pattern: File pattern to match (e.g., "*.py", "*.txt")
+        cwd: Working directory (workspace root). Defaults to current directory
+        max_matches_per_file: Maximum number of matches to display per file
+        enable_search_outside: Allow searching outside workspace
+        as_text: Return formatted text or raw results when as_graph=False
+        as_graph: Use tree graph format for displaying results (takes precedence over as_text)
+        only_filename: If True, only return filename and match count; if False, return detailed content
+        enable_ignore: Enable .drowignore file filtering. When true, files matching patterns in .drowignore will be excluded from search
+        shell_policy: Shell policy for command parsing (auto/unix/powershell)
 
     Returns:
         str or list or PathTreeForSearchTool:
@@ -262,118 +576,26 @@ def search_file(
             - If as_graph=False and as_text=True: Formatted traditional string
             - If as_graph=False and as_text=False: List of FileMatchMeta objects
     """
-    # Handle cwd
-    cwd = Path(cwd or os.getcwd()).expanduser().resolve()
-    if not cwd.exists():
-        raise FileNotFoundError(f"Working directory does not exist: {cwd}")
-    if not cwd.is_dir():
-        raise ValueError(f"Working directory is not a directory: {cwd}")
+    tool = SearchTool()
+    result = tool.execute(
+        path=path,
+        content_pattern=content_pattern,
+        filepath_pattern=filepath_pattern,
+        cwd=cwd,
+        max_matches_per_file=max_matches_per_file,
+        enable_search_outside=enable_search_outside,
+        as_text=as_text,
+        as_graph=as_graph,
+        only_filename=only_filename,
+        enable_ignore=enable_ignore,
+        shell_policy=shell_policy
+    )
 
-    # Handle path
-    path = Path(path).expanduser().resolve()
-    if not path.exists():
-        raise FileNotFoundError(f"Path does not exist: {path}")
+    if not result.success:
+        raise RuntimeError(result.error) if result.error else RuntimeError("Search failed")
 
-    path_is_within_cwd = is_within_workspace(path, cwd)
-    if not enable_search_outside and not path_is_within_cwd:
-        raise ValueError(f"Path '{path}' is outside workspace '{cwd}' and external search is disabled")
+    return result.data
 
-    # Initialize ignore controller if needed
-    controller = None
-    if enable_ignore:
-        controller = IgnoreController(cwd, shell=shell_policy)
-        controller.load()
-
-    def is_file_ignored(file_path_obj) -> bool:
-        """Check if a file is ignored by .drowignore patterns"""
-        if not controller:
-            return False
-        try:
-            rel_path = os.path.relpath(str(file_path_obj), cwd)
-            return not controller.validate_access(rel_path)
-        except Exception:
-            # If path processing fails, conservatively allow the file
-            return False
-
-    # Determine files to search
-    if path.is_file():
-        # Check single file against ignore patterns
-        if is_file_ignored(path):
-            files_to_search = []
-        else:
-            files_to_search = [str(path)]
-
-    elif path.is_dir():
-        # Use Path rglob with smart exclusion patterns
-        base_path = Path(path)
-        files_to_search = []
-
-        # Pre-process exclusion patterns for better performance
-        dir_patterns = [p.rstrip('/') for p in EXT_PATTERNS_FOR_BASE_EXCLUDE if p.endswith('/')]
-        file_patterns = [p.lstrip('*') for p in EXT_PATTERNS_FOR_BASE_EXCLUDE if not p.endswith('/')]
-
-        # Use rglob with filepath_pattern, then filter efficiently
-        for file_path in base_path.rglob(filepath_pattern):
-            if not file_path.is_file():
-                continue
-
-            # Quick directory exclusion check
-            path_parts = file_path.parts
-            if any(any(pattern in part for part in path_parts) for pattern in dir_patterns):
-                continue
-
-            # Quick filename exclusion check
-            if any(file_path.name.endswith(pattern) for pattern in file_patterns):
-                continue
-
-            # Check .drowignore patterns
-            if is_file_ignored(file_path):
-                continue
-
-            files_to_search.append(str(file_path))
-    else:
-        raise FileNotFoundError(f"Path does not exist: {path}")
-
-    # Search for content pattern
-    results = []
-    pattern = re.compile(content_pattern)
-
-    for file_path in files_to_search:
-        try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                file_matches = []
-                file_total_lines = 0
-                for line_num, line in enumerate(f, 1):
-                    file_total_lines = line_num
-                    if pattern.search(line):
-                        file_matches.append(LineMeta(
-                            line=line_num,
-                            text=line.strip(),
-                        ))
-
-                if file_matches:
-                    results.append(FileMatchMeta(
-                        file=file_path,
-                        matches=file_matches,
-                        total_lines=file_total_lines,
-                    ))
-        except Exception as e:
-            print(f"Error reading file {file_path}: {e}")
-
-    if as_graph:
-        return format_results_to_pretty_graph(
-            results,
-            max_matches_per_file=max_matches_per_file,
-            only_filename=only_filename,
-            as_text=as_text
-        )
-    if as_text:
-        return format_results_to_pretty_str(
-            results,
-            max_matches_per_file=max_matches_per_file,
-            only_filename=only_filename,
-        )
-    return results
 
 def format_results_to_pretty_str(
     results,
@@ -410,6 +632,7 @@ def format_results_to_pretty_str(
         output += '\n'
     return output
 
+
 def format_results_to_pretty_graph(
     results,
     max_matches_per_file: int = 10,
@@ -444,28 +667,3 @@ def format_results_to_pretty_graph(
         return output
     return tree
 
-
-# Usage examples
-if __name__ == "__main__":
-    # Search for "TODO" in all Python files in current directory
-    results = search_file(".", "TODO", "*.py")
-    print(results)
-
-    # Search in specific file
-    results = search_file("drowcoder/tools/search.py", "import.*os", "*")
-    print(results)
-
-    # Get raw results instead of formatted text
-    raw_results = search_file(".", "def ", "*.py", as_text=False, as_graph=False)
-    print(f"Found {len(raw_results)} files with function definitions")
-
-    # Search with graph mode disabled (traditional text output)
-    results = search_file(
-        '.',
-        '.*',
-        '*',
-        max_matches_per_file=10,
-        enable_search_outside=True,
-        # as_graph=False,
-    )
-    print(results)
