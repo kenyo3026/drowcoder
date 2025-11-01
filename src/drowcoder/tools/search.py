@@ -537,7 +537,7 @@ class SearchTool(BaseTool):
 
 
 # Backward compatible function interface
-def search_file(
+def search(
     path: str,
     content_pattern: str,
     filepath_pattern: str = "*",

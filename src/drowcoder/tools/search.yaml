@@ -1,7 +1,7 @@
 tools:
   - type: function
     function:
-      name: search_file
+      name: search
       description: Search for content patterns in files within a specified directory or single file. Supports workspace boundary checking to prevent unauthorized access outside the designated working directory.
       parameters:
         type: object
