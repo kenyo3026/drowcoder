@@ -36,7 +36,7 @@ TEST_MODULE = os.environ.get('TEST_SEARCH_MODULE', 'search')
 
 # Dynamically import the specified module
 search_module = importlib.import_module(f'drowcoder.tools.{TEST_MODULE}')
-search_file = search_module.search_file
+search = search_module.search
 SearchTool = getattr(search_module, 'SearchTool', None)
 SearchToolResult = getattr(search_module, 'SearchToolResult', None)
 FileMatchMeta = getattr(search_module, 'FileMatchMeta', None)
@@ -98,21 +98,21 @@ class TestSearchBasic:
         """Test simple content search."""
         test_files['test.txt'].write_text("Search term here")
 
-        result = search_file(str(tmp_path), "Search term", "*", cwd=str(tmp_path))
+        result = search(str(tmp_path), "Search term", "*", cwd=str(tmp_path))
 
         assert isinstance(result, str)
         assert "test.txt" in result or "Search term" in result
 
     def test_regex_pattern(self, tmp_path, test_files):
         """Test regex pattern matching."""
-        result = search_file(str(tmp_path), "def\\s+\\w+", "*.py", cwd=str(tmp_path))
+        result = search(str(tmp_path), "def\\s+\\w+", "*.py", cwd=str(tmp_path))
 
         assert isinstance(result, str)
         assert "def" in result.lower() or "No matching" in result
 
     def test_file_pattern_filtering(self, tmp_path, test_files):
         """Test file pattern filtering."""
-        result = search_file(str(tmp_path), ".*", "*.py", cwd=str(tmp_path))
+        result = search(str(tmp_path), ".*", "*.py", cwd=str(tmp_path))
 
         assert isinstance(result, str)
         # Should only find Python files
@@ -120,7 +120,7 @@ class TestSearchBasic:
 
     def test_search_in_single_file(self, tmp_path, test_files):
         """Test searching in a single file."""
-        result = search_file(str(test_files['test.py']), "TODO", "*", cwd=str(tmp_path))
+        result = search(str(test_files['test.py']), "TODO", "*", cwd=str(tmp_path))
 
         assert isinstance(result, str)
         assert "TODO" in result or "No matching" in result
@@ -131,7 +131,7 @@ class TestSearchOutputFormats:
 
     def test_text_format(self, tmp_path, test_files):
         """Test text output format."""
-        result = search_file(
+        result = search(
             str(tmp_path),
             "Search term",
             "*",
@@ -144,7 +144,7 @@ class TestSearchOutputFormats:
 
     def test_graph_format(self, tmp_path, test_files):
         """Test graph output format."""
-        result = search_file(
+        result = search(
             str(tmp_path),
             ".*",
             "*",
@@ -157,7 +157,7 @@ class TestSearchOutputFormats:
 
     def test_raw_results(self, tmp_path, test_files):
         """Test raw results format."""
-        result = search_file(
+        result = search(
             str(tmp_path),
             "Search term",
             "*",
@@ -172,7 +172,7 @@ class TestSearchOutputFormats:
 
     def test_only_filename(self, tmp_path, test_files):
         """Test only_filename option."""
-        result = search_file(
+        result = search(
             str(tmp_path),
             ".*",
             "*",
@@ -189,21 +189,21 @@ class TestSearchEdgeCases:
 
     def test_empty_results(self, tmp_path, test_files):
         """Test search with no matches."""
-        result = search_file(str(tmp_path), "NonExistentPattern123", "*", cwd=str(tmp_path))
+        result = search(str(tmp_path), "NonExistentPattern123", "*", cwd=str(tmp_path))
 
         assert isinstance(result, str)
         assert "No matching" in result or "0 files" in result.lower()
 
     def test_empty_file(self, tmp_path, test_files):
         """Test searching in empty file."""
-        result = search_file(str(test_files['empty.txt']), ".*", "*", cwd=str(tmp_path))
+        result = search(str(test_files['empty.txt']), ".*", "*", cwd=str(tmp_path))
 
         assert isinstance(result, str)
         assert "No matching" in result or "0 files" in result.lower()
 
     def test_pattern_matching_all_lines(self, tmp_path, test_files):
         """Test pattern that matches all lines."""
-        result = search_file(str(tmp_path), ".*", "*", cwd=str(tmp_path))
+        result = search(str(tmp_path), ".*", "*", cwd=str(tmp_path))
 
         assert isinstance(result, str)
         # Should find files with matches
@@ -213,7 +213,7 @@ class TestSearchEdgeCases:
         test_files['case.txt'] = tmp_path / "case.txt"
         test_files['case.txt'].write_text("Hello World\nhello world")
 
-        result = search_file(str(tmp_path), "Hello", "*", cwd=str(tmp_path))
+        result = search(str(tmp_path), "Hello", "*", cwd=str(tmp_path))
 
         assert isinstance(result, str)
         # Should find case-sensitive matches
@@ -224,13 +224,13 @@ class TestSearchUnicode:
 
     def test_unicode_content(self, tmp_path, test_files):
         """Test searching Unicode content."""
-        result = search_file(str(tmp_path), "中文", "*", cwd=str(tmp_path))
+        result = search(str(tmp_path), "中文", "*", cwd=str(tmp_path))
 
         assert isinstance(result, str)
 
     def test_special_characters(self, tmp_path, test_files):
         """Test searching special characters."""
-        result = search_file(str(tmp_path), "!@#", "*", cwd=str(tmp_path))
+        result = search(str(tmp_path), "!@#", "*", cwd=str(tmp_path))
 
         assert isinstance(result, str)
 
@@ -239,7 +239,7 @@ class TestSearchUnicode:
         emoji_file = tmp_path / "emoji.txt"
         emoji_file.write_text("Hello 😀 World")
 
-        result = search_file(str(tmp_path), "😀", "*", cwd=str(tmp_path))
+        result = search(str(tmp_path), "😀", "*", cwd=str(tmp_path))
 
         assert isinstance(result, str)
 
@@ -250,13 +250,13 @@ class TestSearchErrors:
     def test_nonexistent_path(self, tmp_path):
         """Test search with nonexistent path."""
         with pytest.raises((FileNotFoundError, RuntimeError)):
-            search_file(str(tmp_path / "nonexistent"), ".*", "*", cwd=str(tmp_path))
+            search(str(tmp_path / "nonexistent"), ".*", "*", cwd=str(tmp_path))
 
     def test_invalid_regex(self, tmp_path, test_files):
         """Test with invalid regex pattern."""
         # Some invalid regex patterns might raise errors
         try:
-            result = search_file(str(tmp_path), "[", "*", cwd=str(tmp_path))
+            result = search(str(tmp_path), "[", "*", cwd=str(tmp_path))
             # If no error, should return a result
             assert isinstance(result, str)
         except re.error:
@@ -273,7 +273,7 @@ class TestSearchErrors:
 
         try:
             with pytest.raises((ValueError, RuntimeError)):
-                search_file(
+                search(
                     str(outside_dir),
                     ".*",
                     "*",
@@ -297,7 +297,7 @@ class TestSearchMaxMatches:
         content = "\n".join(["Match line"] * 50)
         test_file.write_text(content)
 
-        result = search_file(
+        result = search(
             str(tmp_path),
             "Match",
             "*",
@@ -438,7 +438,7 @@ class TestSearchSubdirectory:
         test_file = subdir / "test.txt"
         test_file.write_text("Search term")
 
-        result = search_file(str(tmp_path), "Search term", "*", cwd=str(tmp_path))
+        result = search(str(tmp_path), "Search term", "*", cwd=str(tmp_path))
 
         assert isinstance(result, str)
         assert "Search term" in result or "subdir" in result
@@ -452,7 +452,7 @@ class TestSearchMultipleMatches:
         test_file = tmp_path / "multi.txt"
         test_file.write_text("Match\nNo match\nMatch\nMatch")
 
-        result = search_file(str(tmp_path), "Match", "*", cwd=str(tmp_path))
+        result = search(str(tmp_path), "Match", "*", cwd=str(tmp_path))
 
         assert isinstance(result, str)
         assert "Match" in result
@@ -470,7 +470,7 @@ class TestSearchParametrized:
     ])
     def test_various_patterns(self, tmp_path, test_files, pattern):
         """Test search with various patterns."""
-        result = search_file(str(tmp_path), pattern, "*", cwd=str(tmp_path))
+        result = search(str(tmp_path), pattern, "*", cwd=str(tmp_path))
         assert isinstance(result, str)
 
     @pytest.mark.parametrize("file_pattern", [
@@ -481,7 +481,7 @@ class TestSearchParametrized:
     ])
     def test_various_file_patterns(self, tmp_path, test_files, file_pattern):
         """Test search with various file patterns."""
-        result = search_file(str(tmp_path), ".*", file_pattern, cwd=str(tmp_path))
+        result = search(str(tmp_path), ".*", file_pattern, cwd=str(tmp_path))
         assert isinstance(result, str)
 
 
