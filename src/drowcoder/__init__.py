@@ -11,7 +11,7 @@ __email__ = "kenyo3026@gmail.com"
 
 from .agent import DrowAgent, AgentRole, ToolCallResponse
 from .checkpoint import Checkpoint
-from .tools import tool_manager, ToolManager, ToolConfig
+from .tools import ToolManager, ToolConfig
 from .verbose import VerboseStyle, VerboserFactory
 from .prompts import SystemPromptInstruction
 
