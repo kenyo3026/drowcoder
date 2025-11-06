@@ -50,6 +50,7 @@ class DrowAgent:
         keep_last_k_tool_call_contexts:int = 5,
         checkpoint: Union[str, Checkpoint] = None,
         verbose_style: Union[str, VerboseStyle] = VerboseStyle.PRETTY,
+        max_iterations: int = 50,
         **completion_kwargs
     ):
         self.setup_workspace(workspace)
@@ -70,6 +71,12 @@ class DrowAgent:
         self.tool_funcs = tool_manager.get_tool_funcs()
         self.tool_call_group_ids = []
         self.keep_last_k_tool_call_contexts = keep_last_k_tool_call_contexts
+
+        # Iteration control - agent will keep iterating until:
+        # 1. max_iterations is reached, OR
+        # 2. attempt_completion is called
+        self.max_iterations = max_iterations
+        self.current_iteration = 0
 
         self.messages = []
         self.system_prompt = SystemPromptInstruction.format(tools=self.tools)
@@ -162,6 +169,9 @@ class DrowAgent:
         if not isinstance(content, str):
             raise TypeError(f"Expected string for content, got {type(content).__name__} instead")
 
+        # Reset iteration counter for new user message
+        self.current_iteration = 0
+
         message = {"role": AgentRole.USER, "content": content}
         self.messages.append(message)
 
@@ -170,6 +180,18 @@ class DrowAgent:
         self.verbose_latest_message()
 
     def complete(self, **completion_kwargs):
+        # Increment iteration counter
+        self.current_iteration += 1
+
+        # Stop condition 1: Check max iterations
+        if self.current_iteration > self.max_iterations:
+            warning_msg = (
+                f"⚠️  Reached maximum iterations ({self.max_iterations}). "
+                f"Agent did not call attempt_completion."
+            )
+            print(f"\n{warning_msg}")
+            return
+
         completion_kwargs = {**self.completion_kwargs, **completion_kwargs}
 
         messages = self._prepare_messages(self.messages, last_k_tool_call_group=self.keep_last_k_tool_call_contexts)
@@ -183,15 +205,46 @@ class DrowAgent:
         self.checkpoint.raw_messages.punch(response.to_dict())
         self.verbose_latest_message()
 
+        # Stop condition 2: Check if task is explicitly marked as completed
+        if self._is_task_completed(message):
+            completion_msg = "✓ Task completed - agent called attempt_completion"
+            print(f"\n{completion_msg}")
+            return
+
+        # Execute tools if any
         if message.tool_calls:
             self.call_tool(message.tool_calls)
-            self.complete()
+
+        # KEY CHANGE: Always continue iterating (no longer depend on tool_calls)
+        # Agent will keep thinking until it calls attempt_completion or hits max_iterations
+        self.complete()
 
     def verbose_latest_message(self):
         if not self.messages:
             return
         message = self.messages[-1]
         self.verboser.verbose_message(message)
+
+    def _is_task_completed(self, message) -> bool:
+        """
+        Check if the agent has marked the task as completed.
+
+        This is the explicit stopping signal - when the agent calls
+        attempt_completion, it means it considers the task done.
+
+        Args:
+            message: The assistant message to check
+
+        Returns:
+            bool: True if attempt_completion was called, False otherwise
+        """
+        if not hasattr(message, 'tool_calls') or not message.tool_calls:
+            return False
+
+        return any(
+            tool_call.function.name == 'attempt_completion'
+            for tool_call in message.tool_calls
+        )
 
     def _prepare_messages(self, messages, **kwargs):
         if self.tool_call_group_ids:
