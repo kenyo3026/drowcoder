@@ -1,18 +1,20 @@
 import os
 import sys
 import yaml
+import logging
 from pathlib import Path
 from dataclasses import dataclass
-from typing import Dict, List, Any, Optional, Callable
+from typing import Dict, List, Any, Callable, Optional, Union
 from copy import deepcopy
 
-from .load import *
-from .search import *
-from .search_and_replace import *
-from .attempt_completion import *
-from .write import *
-from .execute import *
-from .todo import *
+from .base import BaseTool
+from .load import LoadTool as load
+from .search import SearchTool as search
+from .search_and_replace import SearchAndReplaceTool as search_and_replace
+from .attempt_completion import AttemptCompletionTool as attempt_completion
+from .write import WriteTool as write
+from .execute import ExecuteTool as execute_command
+from .todo import TodoTool as update_todos
 
 
 @dataclass
@@ -31,12 +33,43 @@ class ToolConfig:
             function=func
         )
 
-
 class ToolManager:
-    """Tool manager - handles loading, managing and configuring tools"""
+    """
+    Tool manager - handles loading, managing and configuring tools
 
-    def __init__(self, tool_root: Optional[Path] = None):
+    Architecture:
+        Supports two types of tools:
+
+        1. **BaseTool subclasses** (Recommended):
+           - Inherit from BaseTool abstract class
+           - Support dependency injection (logger, callback, checkpoint)
+           - Consistent interface via execute() method
+           - Automatic lifecycle management
+           - Example: LoadTool, WriteTool, TodoTool
+
+        2. **Plain function tools**:
+           - Simple callable functions
+           - No initialization required
+           - Suitable for stateless operations
+           - Can be used directly without instantiation
+
+        The ToolManager automatically detects and handles both types transparently.
+        BaseTool subclasses are instantiated with dependencies and their execute()
+        method is extracted as the callable. Plain functions are used directly.
+    """
+
+    def __init__(
+        self,
+        logger: Optional[logging.Logger] = None,
+        callback: Optional[Callable] = None,
+        checkpoint: Optional[Union[str, Path]] = None,
+        tool_root: Optional[Path] = None,
+    ):
+        self.logger = logger
+        self.callback = callback
+        self.checkpoint = checkpoint
         self.tool_root = tool_root or Path(__file__).parent
+
         self.builtin_yamls = [
             'attempt_completion.yaml',
             'execute.yaml',
@@ -46,8 +79,6 @@ class ToolManager:
             'write.yaml',
             'todo.yaml',
         ]
-
-        # Store all tool configurations
         self._builtin_tools: Dict[str, ToolConfig] = {}
         self._active_tools: Dict[str, ToolConfig] = {}
 
@@ -75,6 +106,13 @@ class ToolManager:
                     # Ensure function exists in module
                     if func_name in current_module.__dict__:
                         func = current_module.__dict__[func_name]
+                        if isinstance(func, type) and issubclass(func, BaseTool):
+                            func = func(
+                                logger=self.logger,
+                                callback=self.callback,
+                                checkpoint=self.checkpoint,
+                            )
+                            func = func.execute
                         tool_config = ToolConfig.from_desc(desc, func)
                         self._builtin_tools[func_name] = tool_config
                     else:
@@ -117,6 +155,13 @@ class ToolManager:
 
             # Create or override tool configuration
             func = current_module.__dict__[func_name]
+            if isinstance(func, type) and issubclass(func, BaseTool):
+                func = func(
+                    logger=self.logger,
+                    callback=self.callback,
+                    checkpoint=self.checkpoint,
+                )
+                func = func.execute
             tool_config = ToolConfig.from_desc(tool_desc, func)
             self._active_tools[func_name] = tool_config
 
@@ -165,8 +210,3 @@ class ToolManager:
     def get_tool_info(self, tool_name: str) -> Optional[ToolConfig]:
         """Get detailed information of a specific tool"""
         return self._active_tools.get(tool_name)
-
-
-# Create global tool manager instance
-tool_manager = ToolManager()
-
