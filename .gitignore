@@ -26,6 +26,7 @@ artifacts/*
 checkpoints/*
 configs/*
 logs/*
+materials/*
 scripts/
 src/drowcoder/tools/tests/reports/*
 
