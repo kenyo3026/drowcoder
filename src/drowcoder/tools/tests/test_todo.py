@@ -36,13 +36,41 @@ TEST_MODULE = os.environ.get('TEST_TODO_MODULE', 'todo')
 
 # Dynamically import the specified module
 todo_module = importlib.import_module(f'drowcoder.tools.{TEST_MODULE}')
-update_todos = todo_module.update_todos
-get_todos = todo_module.get_todos
-update_todo_status = todo_module.update_todo_status
 TodoTool = getattr(todo_module, 'TodoTool', None)
 TodoResult = getattr(todo_module, 'TodoResult', None)
 TodoItem = todo_module.TodoItem
 TodoStatusType = todo_module.TodoStatusType
+
+# Helper functions to maintain test compatibility
+def update_todos(merge, todos, checkpoint_path):
+    """Wrapper function for testing - creates tool instance and calls execute"""
+    tool = TodoTool(checkpoint=checkpoint_path)
+    result = tool.execute(merge=merge, todos=todos)
+    if not result.success:
+        if isinstance(result.error, str) and 'Invalid' in result.error:
+            raise ValueError(result.error)
+        else:
+            raise IOError(result.error)
+    return result.result
+
+def get_todos(checkpoint_path):
+    """Get todos from checkpoint"""
+    import json
+    from pathlib import Path
+    todo_file = Path(checkpoint_path) / 'todos.json'
+    if todo_file.exists():
+        with open(todo_file, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return []
+
+def update_todo_status(todo_id, status, checkpoint_path):
+    """Update a single todo's status"""
+    todos = get_todos(checkpoint_path)
+    for todo in todos:
+        if todo['id'] == todo_id:
+            todo['status'] = status
+            return update_todos(merge=False, todos=todos, checkpoint_path=checkpoint_path)
+    raise ValueError(f"Todo with id '{todo_id}' not found")
 
 
 @pytest.fixture

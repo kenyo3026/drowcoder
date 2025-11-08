@@ -31,9 +31,18 @@ TEST_MODULE = os.environ.get('TEST_ATTEMPT_COMPLETION_MODULE', 'attempt_completi
 
 # Dynamically import the specified module
 ac_module = importlib.import_module(f'drowcoder.tools.{TEST_MODULE}')
-attempt_completion = ac_module.attempt_completion
 AttemptCompletionTool = ac_module.AttemptCompletionTool
 AttemptCompletionResult = ac_module.AttemptCompletionResult
+
+# Helper function to maintain test compatibility
+def attempt_completion(result: str) -> str:
+    """Wrapper function for testing - creates tool instance and calls execute"""
+    tool = AttemptCompletionTool()
+    result_obj = tool.execute(result=result)
+    if result_obj.success:
+        return result_obj.result
+    else:
+        return f"Error: {result_obj.error}"
 
 
 class TestAttemptCompletionBasic:

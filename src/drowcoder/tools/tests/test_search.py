@@ -36,11 +36,16 @@ TEST_MODULE = os.environ.get('TEST_SEARCH_MODULE', 'search')
 
 # Dynamically import the specified module
 search_module = importlib.import_module(f'drowcoder.tools.{TEST_MODULE}')
-search = search_module.search
 SearchTool = getattr(search_module, 'SearchTool', None)
 SearchToolResult = getattr(search_module, 'SearchToolResult', None)
 FileMatchMeta = getattr(search_module, 'FileMatchMeta', None)
 LineMeta = getattr(search_module, 'LineMeta', None)
+
+# Helper function to maintain test compatibility
+def search(pattern, file, **kwargs):
+    """Wrapper function for testing - creates tool instance and calls execute"""
+    tool = SearchTool()
+    return tool.execute(pattern=pattern, file=file, **kwargs)
 
 
 @pytest.fixture

@@ -34,9 +34,42 @@ TEST_MODULE = os.environ.get('TEST_EXEC_MODULE', 'execute')
 
 # Dynamically import the specified module
 exec_module = importlib.import_module(f'drowcoder.tools.{TEST_MODULE}')
-execute_command = exec_module.execute_command
 CommandResult = exec_module.CommandResult
 CommandExecutor = getattr(exec_module, 'CommandExecutor', getattr(exec_module, 'ExecuteTool', None))
+ExecuteTool = exec_module.ExecuteTool
+
+# Helper function to maintain test compatibility
+def execute_command(command, cwd=None, timeout_seconds=0, shell=True, env=None,
+                   encoding="utf-8", combine_stdout_stderr=True, enable_ignore=True, shell_policy="auto"):
+    """Wrapper function for testing - creates tool instance and calls execute"""
+    tool = ExecuteTool()
+    tool_result = tool.execute(
+        command=command,
+        cwd=cwd,
+        timeout_seconds=timeout_seconds,
+        shell=shell,
+        env=env,
+        encoding=encoding,
+        combine_stdout_stderr=combine_stdout_stderr,
+        enable_ignore=enable_ignore,
+        shell_policy=shell_policy,
+    )
+    # Return CommandResult for backward compatibility
+    if tool_result.success and tool_result.command_result:
+        return tool_result.command_result
+    else:
+        # On error, return a CommandResult with error information
+        from pathlib import Path
+        return CommandResult(
+            command=command,
+            cwd=Path(cwd).resolve() if cwd else None,
+            exit_code=1,
+            output="",
+            error=tool_result.error or "Unknown error",
+            pid=None,
+            duration_ms=0,
+            timed_out=False,
+        )
 
 
 @pytest.fixture
