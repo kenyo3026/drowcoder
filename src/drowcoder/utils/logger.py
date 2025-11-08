@@ -2,8 +2,10 @@ import logging
 import sys
 import os
 import pathlib
-from typing import Union, Literal, Optional
+from contextlib import redirect_stdout, redirect_stderr
+from io import StringIO
 from rich.logging import RichHandler
+from typing import Union, Literal, Optional
 
 
 LogLevel = Union[Literal[10, 20, 30, 40, 50], int]
@@ -129,3 +131,71 @@ def enable_rich_logger(
 ) -> logging.Logger:
     """Create rich logger."""
     return RichLogger(level, directory, name, reinit, file_open_mode, rich_tracebacks).setup()
+
+
+class CaptureLogHandler(logging.Handler):
+    """Custom handler to capture log output"""
+
+    def __init__(self):
+        super().__init__()
+        self.log_buffer = StringIO()
+
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            self.log_buffer.write(msg + '\n')
+        except Exception:
+            self.handleError(record)
+
+    def get_logs(self):
+        return self.log_buffer.getvalue()
+
+
+class OutputCapture:
+    """Context manager to capture stdout, stderr, and logger output"""
+
+    def __init__(self, logger: Optional[logging.Logger] = None):
+        self.logger = logger
+        self.stdout_capture = StringIO()
+        self.stderr_capture = StringIO()
+        self.log_handler = None
+        self.stdout_ctx = None
+        self.stderr_ctx = None
+
+    def __enter__(self):
+        # Capture stdout/stderr
+        self.stdout_ctx = redirect_stdout(self.stdout_capture)
+        self.stderr_ctx = redirect_stderr(self.stderr_capture)
+        self.stdout_ctx.__enter__()
+        self.stderr_ctx.__enter__()
+
+        # Capture logger if provided
+        if self.logger:
+            self.log_handler = CaptureLogHandler()
+            # Copy formatter from existing handler if available
+            if self.logger.handlers:
+                self.log_handler.setFormatter(self.logger.handlers[0].formatter)
+            self.logger.addHandler(self.log_handler)
+
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        # Restore stdout/stderr
+        if self.stdout_ctx:
+            self.stdout_ctx.__exit__(exc_type, exc_val, exc_tb)
+        if self.stderr_ctx:
+            self.stderr_ctx.__exit__(exc_type, exc_val, exc_tb)
+
+        # Remove logger handler
+        if self.log_handler and self.logger:
+            self.logger.removeHandler(self.log_handler)
+
+        return False  # Don't suppress exceptions
+
+    def get_output(self):
+        """Get all captured output"""
+        return {
+            'stdout': self.stdout_capture.getvalue(),
+            'stderr': self.stderr_capture.getvalue(),
+            'logs': self.log_handler.get_logs() if self.log_handler else ''
+        }

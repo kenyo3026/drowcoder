@@ -3,7 +3,6 @@ import json
 import logging
 import pathlib
 from dataclasses import dataclass
-from functools import partial
 from typing import Union, List, Optional, Dict, Any
 
 import litellm
@@ -12,6 +11,7 @@ from .checkpoint import Checkpoint
 from .prompts import *
 from .tools import ToolManager
 from .verbose import *
+from .utils.logger import OutputCapture
 from .utils.unique_id import generate_unique_id
 
 
@@ -31,6 +31,7 @@ class ToolCallResponse:
     name               :str
     arguments          :dict
     content            :str
+    captured_logs      :str = ""
 
     def form_content(self):
         return '\n'.join([f'**{key}:**\n{value}' for key, value in self.__dict__.items()
@@ -148,13 +149,27 @@ class DrowAgent:
             arguments = json.loads(tool_call.function.arguments)
 
             if func_name in self.tool_funcs:
+                # Use OutputCapture to capture logger output during tool execution
                 try:
-                    content = self.tool_funcs[func_name](**arguments)
+                    with OutputCapture(logger=self.logger) as capture:
+                        content = self.tool_funcs[func_name](**arguments)
                     content = str(content)
+
+                    # Get captured logs
+                    captured_output = capture.get_output()
+                    captured_logs = captured_output['logs']
+
                 except Exception as e:
                     content = f"Error executing {func_name}: {str(e)}"
+                    # Try to get partial logs if capture was initiated
+                    try:
+                        captured_output = capture.get_output()
+                        captured_logs = captured_output['logs']
+                    except:
+                        captured_logs = ""
             else:
                 content = f"Unknown tool: {func_name}"
+                captured_logs = ""
 
             tool_response = ToolCallResponse(
                 role = AgentRole.TOOL,
@@ -163,6 +178,7 @@ class DrowAgent:
                 name = func_name,
                 arguments = arguments,
                 content = content,
+                captured_logs = captured_logs,
             )
             message = tool_response.form_message()
 
