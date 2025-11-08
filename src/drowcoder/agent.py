@@ -1,5 +1,6 @@
 import os
 import json
+import logging
 import pathlib
 from dataclasses import dataclass
 from functools import partial
@@ -48,12 +49,15 @@ class DrowAgent:
         workspace: str = None,
         tools: Optional[List[Dict[str, Any]]] = None,
         keep_last_k_tool_call_contexts:int = 5,
+        logger: Optional[logging.Logger] = None,
         checkpoint: Union[str, Checkpoint] = None,
         verbose_style: Union[str, VerboseStyle] = VerboseStyle.PRETTY,
         max_iterations: int = 50,
         max_iterations_without_call_tools: int = 3,
         **completion_kwargs
     ):
+        self.logger = logger or logging.getLogger(__name__)
+
         self.setup_workspace(workspace)
 
         self.checkpoint = checkpoint
@@ -62,6 +66,7 @@ class DrowAgent:
 
         # Apply config tools if provided
         tool_manager = ToolManager(
+            logger=self.logger,
             checkpoint=self.checkpoint.checkpoint_root,
         )
         if tools:
@@ -196,7 +201,7 @@ class DrowAgent:
                 f"⚠️  Reached maximum iterations ({self.max_iterations}). "
                 f"Agent did not call attempt_completion."
             )
-            print(f"\n{warning_msg}")
+            self.logger.warning(warning_msg)
             return
 
         completion_kwargs = {**self.completion_kwargs, **completion_kwargs}
@@ -215,7 +220,7 @@ class DrowAgent:
         # Stop condition 2: Check if task is explicitly marked as completed
         if self._is_task_completed(message):
             completion_msg = "✓ Task completed - agent called attempt_completion"
-            print(f"\n{completion_msg}")
+            self.logger.info(completion_msg)
             return
 
         # Execute tools if any
@@ -233,7 +238,7 @@ class DrowAgent:
                     f"⚠️  Reached maximum iterations ({self.max_iterations_without_call_tools}) without calling tools. "
                     f"Agent stopped to prevent excessive thinking loops. Task may not be completed - consider calling attempt_completion if finished, or use tools to make progress."
                 )
-                print(f"\n{warning_msg}")
+                self.logger.warning(warning_msg)
                 return
 
         # KEY CHANGE: Always continue iterating (no longer depend on tool_calls)
