@@ -136,6 +136,7 @@ class Main:
                 workspace=workspace,
                 tools=tools,
                 checkpoint=checkpoint,
+                logger=logger,
                 **completion_kwargs,
             )
 
