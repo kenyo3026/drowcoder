@@ -185,7 +185,7 @@ class FileProcessor:
                     return f.read()
             return ""
         except Exception as e:
-            print(f"Warning: Could not read {file_path}: {e}")
+            self.logger.warning(f"Could not read {file_path}: {e}")
             return ""
 
     def _prepare_content(self, original_content: str) -> str:
@@ -394,7 +394,7 @@ class WriteTool(BaseTool):
 
         # Check if content would result in no changes
         if self._is_content_identical(file_path, content, operation):
-            print("ℹ️  Content is identical to existing file - no changes needed.")
+            self.logger.info("Content is identical to existing file - no changes needed.")
             config = WriteConfig(content=content, file_path=file_path, **kwargs)
             return WriteToolResult(
                 success=True,
@@ -419,10 +419,9 @@ class WriteTool(BaseTool):
         access_warnings = self.validator.validate_file_access(config.file_path)
 
         if config_warnings or access_warnings:
-            print("⚠️  Safety Warnings:")
+            self.logger.warning("Safety Warnings:")
             for warning in config_warnings + access_warnings:
-                print(f"  - {warning}")
-            print()
+                self.logger.warning(f"  - {warning}")
 
         # Process file
         processor = FileProcessor(config)
@@ -466,8 +465,6 @@ class WriteTool(BaseTool):
             result.file_results.append(file_result)
             result.success = False
             result.error = str(e)
-            print(f"❌ Error: {e}")
-
             self.logger.error(f"Write operation failed: {e}")
 
         return result
@@ -510,36 +507,43 @@ class WriteTool(BaseTool):
             shutil.copy2(file_path, backup_path)
             return backup_path
         except Exception as e:
-            print(f"Warning: Failed to create backup: {e}")
+            self.logger.warning(f"Failed to create backup: {e}")
             return None
 
     def _handle_preview(self, result: WriteToolResult, style: str):
         """Handle preview mode output"""
         for file_result in result.file_results:
-            print(f"\n{'='*60}")
-            print(f"File: {file_result.file_path}")
+            self.logger.info("=" * 60)
+            self.logger.info(f"File: {file_result.file_path}")
             if file_result.change:
-                print(f"Operation: {file_result.operation_type}")
-                print(f"Size: {file_result.change.content_size} bytes, {file_result.change.line_count} lines")
-            print(f"Mode: PREVIEW")
-            print('='*60)
+                self.logger.info(f"Operation: {file_result.operation_type}")
+                self.logger.info(f"Size: {file_result.change.content_size} bytes, {file_result.change.line_count} lines")
+            self.logger.info("Mode: PREVIEW")
+            self.logger.info("=" * 60)
 
             if not file_result.has_change:
-                print("No changes to preview.")
+                self.logger.info("No changes to preview.")
                 continue
 
+            # Output formatted content
             if style == OutputStyle.DEFAULT:
-                print(self.formatter.format_default(file_result))
+                formatted_output = self.formatter.format_default(file_result)
             elif style == OutputStyle.GIT_DIFF:
-                print(self.formatter.format_git_diff(file_result))
+                formatted_output = self.formatter.format_git_diff(file_result)
             elif style == OutputStyle.GIT_CONFLICT:
-                print(self.formatter.format_git_conflict(file_result))
+                formatted_output = self.formatter.format_git_conflict(file_result)
+            else:
+                formatted_output = ""
+
+            # Log formatted output line by line to preserve formatting
+            for line in formatted_output.splitlines():
+                self.logger.info(line)
 
     def _handle_apply(self, result: WriteToolResult, style: str, output_file: Optional[Path]):
         """Handle apply mode output"""
         for file_result in result.file_results:
             if not file_result.has_change:
-                print(f"ℹ️  No changes needed for: {file_result.file_path}")
+                self.logger.info(f"No changes needed for: {file_result.file_path}")
                 file_result.success = True
                 continue
 
@@ -557,7 +561,7 @@ class WriteTool(BaseTool):
                     style == OutputStyle.DEFAULT):
                     file_result.backup_path = self._create_backup(target_path)
                     if file_result.backup_path:
-                        print(f"📦 Backup created: {file_result.backup_path}")
+                        self.logger.info(f"Backup created: {file_result.backup_path}")
 
                 # Generate content based on style
                 if style == OutputStyle.DEFAULT:
@@ -586,10 +590,10 @@ class WriteTool(BaseTool):
                         pass  # Ignore permission copy errors
 
                 file_result.success = True
-                print(f"✅ Successfully {file_result.operation_type}: {target_path}")
+                self.logger.info(f"Successfully {file_result.operation_type}: {target_path}")
 
             except Exception as e:
                 file_result.success = False
                 file_result.error_message = str(e)
                 result.success = False
-                print(f"❌ Error writing {file_result.file_path}: {e}")
+                self.logger.error(f"Error writing {file_result.file_path}: {e}")

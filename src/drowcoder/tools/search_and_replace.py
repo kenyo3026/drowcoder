@@ -323,7 +323,7 @@ class SearchAndReplaceTool(BaseTool):
         try:
             # Check if search and replace are identical
             if self._is_search_replace_identical(search, replace):
-                print("ℹ️  Search and replace patterns are identical - no changes needed.")
+                self.logger.info("Search and replace patterns are identical - no changes needed.")
                 config = SearchReplaceConfig(search=search, replace=replace, **kwargs)
                 return SearchReplaceToolResult(
                     success=True,
@@ -424,17 +424,24 @@ class SearchAndReplaceTool(BaseTool):
             if not file_result.has_matches:
                 continue
 
-            print(f"\n{'='*60}")
-            print(f"File: {file_result.file_path}")
-            print(f"Matches: {file_result.total_matches}")
-            print('='*60)
+            self.logger.info("=" * 60)
+            self.logger.info(f"File: {file_result.file_path}")
+            self.logger.info(f"Matches: {file_result.total_matches}")
+            self.logger.info("=" * 60)
 
+            # Output formatted content
             if style == OutputStyle.DEFAULT:
-                print(self.formatter.format_default(file_result))
+                formatted_output = self.formatter.format_default(file_result)
             elif style == OutputStyle.GIT_DIFF:
-                print(self.formatter.format_git_diff(file_result))
+                formatted_output = self.formatter.format_git_diff(file_result)
             elif style == OutputStyle.GIT_CONFLICT:
-                print(self.formatter.format_git_conflict(file_result))
+                formatted_output = self.formatter.format_git_conflict(file_result)
+            else:
+                formatted_output = ""
+
+            # Log formatted output line by line to preserve formatting
+            for line in formatted_output.splitlines():
+                self.logger.info(line)
 
     def _handle_apply(self, result: SearchReplaceToolResult, style: OutputStyle, output_file: Optional[Path]):
         """Handle apply mode output"""
@@ -462,7 +469,7 @@ class SearchAndReplaceTool(BaseTool):
             try:
                 with open(target_path, 'w', encoding='utf-8') as f:
                     f.write(content)
-                print(f"Applied changes to: {target_path}")
+                self.logger.info(f"Applied changes to: {target_path}")
             except Exception as e:
                 self.logger.error(f"Error writing to {target_path}: {e}")
                 result.success = False

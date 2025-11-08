@@ -116,10 +116,12 @@ class ToolManager:
                         tool_config = ToolConfig.from_desc(desc, func)
                         self._builtin_tools[func_name] = tool_config
                     else:
-                        print(f"Warning: Function {func_name} not found in module")
+                        if self.logger:
+                            self.logger.warning(f"Function {func_name} not found in module")
 
             except (FileNotFoundError, yaml.YAMLError, KeyError) as e:
-                print(f"Warning: Failed to load {yaml_file}: {e}")
+                if self.logger:
+                    self.logger.warning(f"Failed to load {yaml_file}: {e}")
 
     def apply_config_tools(self, config_tools: Optional[List[Dict[str, Any]]] = None):
         """
