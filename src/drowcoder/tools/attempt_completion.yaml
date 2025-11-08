@@ -2,7 +2,19 @@ tools:
   - type: "function"
     function:
       name: "attempt_completion"
-      description: "Mark the current task as completed and stop the agent iteration. Use this when you have successfully completed the user's request."
+      description: |
+        **[COMPLETION SIGNAL]** Stop the agent iteration loop and mark tasks as complete.
+
+        This agent operates in continuous iteration mode. Call this tool when:
+        - All user-requested tasks have been completed
+        - Implementation is verified and working correctly
+        - No remaining tasks or unresolved issues to address
+
+        **IMPORTANT:** The agent will continue iterating indefinitely until this tool is called (up to max_iterations).
+        Simply providing a text summary is NOT sufficient to stop - you must call this tool explicitly.
+
+        Required parameter:
+        - result: A brief summary of what was accomplished and why the task is considered complete
       parameters:
         type: "object"
         properties:
