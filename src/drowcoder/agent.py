@@ -51,6 +51,7 @@ class DrowAgent:
         checkpoint: Union[str, Checkpoint] = None,
         verbose_style: Union[str, VerboseStyle] = VerboseStyle.PRETTY,
         max_iterations: int = 50,
+        max_iterations_without_call_tools: int = 3,
         **completion_kwargs
     ):
         self.setup_workspace(workspace)
@@ -72,11 +73,16 @@ class DrowAgent:
         self.tool_call_group_ids = []
         self.keep_last_k_tool_call_contexts = keep_last_k_tool_call_contexts
 
-        # Iteration control - agent will keep iterating until:
-        # 1. max_iterations is reached, OR
-        # 2. attempt_completion is called
+        # Iteration control - agent will keep iterating until one of:
+        # 1. max_iterations is reached (total iteration limit), OR
+        # 2. attempt_completion is called (explicit completion signal), OR
+        # 3. max_iterations_without_call_tools is reached (continuous thinking without tools)
+        #    - Set to 0 for Cursor-like behavior (stop immediately without tools)
+        #    - Set to 3+ for allowing extended thinking chains
         self.max_iterations = max_iterations
-        self.current_iteration = 0
+        self.max_iterations_without_call_tools = max_iterations_without_call_tools
+        self.iteration_so_far = 0
+        self.iteration_so_far_without_call_tools = 0
 
         self.messages = []
         self.system_prompt = SystemPromptInstruction.format(tools=self.tools)
@@ -170,7 +176,8 @@ class DrowAgent:
             raise TypeError(f"Expected string for content, got {type(content).__name__} instead")
 
         # Reset iteration counter for new user message
-        self.current_iteration = 0
+        self.iteration_so_far = 0
+        self.iteration_so_far_without_call_tools = 0
 
         message = {"role": AgentRole.USER, "content": content}
         self.messages.append(message)
@@ -181,10 +188,10 @@ class DrowAgent:
 
     def complete(self, **completion_kwargs):
         # Increment iteration counter
-        self.current_iteration += 1
+        self.iteration_so_far += 1
 
         # Stop condition 1: Check max iterations
-        if self.current_iteration > self.max_iterations:
+        if self.iteration_so_far > self.max_iterations:
             warning_msg = (
                 f"⚠️  Reached maximum iterations ({self.max_iterations}). "
                 f"Agent did not call attempt_completion."
@@ -214,6 +221,20 @@ class DrowAgent:
         # Execute tools if any
         if message.tool_calls:
             self.call_tool(message.tool_calls)
+            self.iteration_so_far_without_call_tools = 0
+        else:
+            self.iteration_so_far_without_call_tools += 1
+
+            # Stop if exceeded max continuous iterations without tools
+            # max=0: stop immediately (Cursor mode)
+            # max=3: allow 3 iterations, stop on 4th
+            if self.iteration_so_far_without_call_tools > self.max_iterations_without_call_tools:
+                warning_msg = (
+                    f"⚠️  Reached maximum iterations ({self.max_iterations_without_call_tools}) without calling tools. "
+                    f"Agent stopped to prevent excessive thinking loops. Task may not be completed - consider calling attempt_completion if finished, or use tools to make progress."
+                )
+                print(f"\n{warning_msg}")
+                return
 
         # KEY CHANGE: Always continue iterating (no longer depend on tool_calls)
         # Agent will keep thinking until it calls attempt_completion or hits max_iterations
