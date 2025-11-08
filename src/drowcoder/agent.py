@@ -51,7 +51,7 @@ class DrowAgent:
         keep_last_k_tool_call_contexts:int = 5,
         logger: Optional[logging.Logger] = None,
         checkpoint: Union[str, Checkpoint] = None,
-        verbose_style: Union[str, VerboseStyle] = VerboseStyle.PRETTY,
+        verbose_style: Union[str, VerboseStyle] = VerboseStyle.RICH_PRETTY,
         max_iterations: int = 50,
         max_iterations_without_call_tools: int = 3,
         **completion_kwargs
