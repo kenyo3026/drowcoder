@@ -35,9 +35,14 @@ TEST_MODULE = os.environ.get('TEST_SAR_MODULE', 'search_and_replace')
 
 # Dynamically import the specified module
 sar_module = importlib.import_module(f'drowcoder.tools.{TEST_MODULE}')
-search_and_replace = sar_module.search_and_replace
 SearchAndReplaceTool = getattr(sar_module, 'SearchAndReplaceTool', None)
 SearchReplaceToolResult = getattr(sar_module, 'SearchReplaceToolResult', None)
+
+# Helper function to maintain test compatibility
+def search_and_replace(file, search, replace, **kwargs):
+    """Wrapper function for testing - creates tool instance and calls execute"""
+    tool = SearchAndReplaceTool()
+    return tool.execute(file=file, search=search, replace=replace, **kwargs)
 
 
 @pytest.fixture

@@ -32,9 +32,15 @@ TEST_MODULE = os.environ.get('TEST_LOAD_MODULE', 'load')
 
 # Dynamically import the specified module
 load_module = importlib.import_module(f'drowcoder.tools.{TEST_MODULE}')
-load = load_module.load
 LoadTool = load_module.LoadTool
 LoadResult = load_module.LoadResult
+
+# Helper function to maintain test compatibility
+def load(file_path: str, ensure_abs: bool = True) -> str:
+    """Wrapper function for testing - creates tool instance and calls execute"""
+    tool = LoadTool()
+    result = tool.execute(file_path=file_path, ensure_abs=ensure_abs)
+    return result.result
 
 
 class TestLoadBasic:

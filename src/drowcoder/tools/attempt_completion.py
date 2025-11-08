@@ -91,30 +91,3 @@ class AttemptCompletionTool(BaseTool):
                 error=error_msg,
                 result_description=result
             )
-
-
-# Backward compatible function interface
-def attempt_completion(result: str) -> str:
-    """
-    Mark the current task as completed.
-
-    This is a backward-compatible wrapper around AttemptCompletionTool.
-    Preserves the exact interface and behavior of the original function.
-
-    Args:
-        result: A brief description of what was accomplished.
-
-    Returns:
-        str: Confirmation message that the task has been marked as completed.
-    """
-    # Create tool (auto-initializes by default)
-    tool = AttemptCompletionTool()
-
-    # Execute and return data
-    result_obj = tool.execute(result=result)
-
-    if result_obj.success:
-        return result_obj.result
-    else:
-        return f"Error: {result_obj.error}"
-

@@ -34,9 +34,22 @@ TEST_MODULE = os.environ.get('TEST_WRITE_MODULE', 'write')
 
 # Dynamically import the specified module
 write_module = importlib.import_module(f'drowcoder.tools.{TEST_MODULE}')
-write = write_module.write
 WriteTool = getattr(write_module, 'WriteTool', None)
 WriteToolResult = getattr(write_module, 'WriteToolResult', None)
+
+# Helper function to maintain test compatibility
+def write(file_path, content, mode="apply", output_style="default", operation="overwrite", output_file=None, **kwargs):
+    """Wrapper function for testing - creates tool instance and calls execute"""
+    tool = WriteTool()
+    return tool.execute(
+        file_path=file_path,
+        content=content,
+        mode=mode,
+        output_style=output_style,
+        operation=operation,
+        output_file=output_file,
+        **kwargs
+    )
 
 
 @pytest.fixture
