@@ -338,6 +338,15 @@ class RichPrettyMessageVerboser(BaseMessageVerboser):
         result.append(func_signature)
         result.append("\n\n")
 
+        # Captured logs (if any)
+        captured_logs = message.get('captured_logs', '')
+        if captured_logs:
+            result.append("Logs:\n", style="bold cyan")
+            # Display logs line by line
+            for log_line in captured_logs.splitlines():
+                result.append(log_line + "\n", style="dim cyan")
+            result.append("\n")
+
         # Result
         result.append("Result:\n", style="bold green")
         content = message.get('content', '')
