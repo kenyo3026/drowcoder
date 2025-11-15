@@ -37,7 +37,7 @@ TEST_MODULE = os.environ.get('TEST_TODO_MODULE', 'todo')
 # Dynamically import the specified module
 todo_module = importlib.import_module(f'drowcoder.tools.{TEST_MODULE}')
 TodoTool = getattr(todo_module, 'TodoTool', None)
-TodoResult = getattr(todo_module, 'TodoResult', None)
+TodoToolResponse = getattr(todo_module, 'TodoToolResponse', None)
 TodoItem = todo_module.TodoItem
 TodoStatusType = todo_module.TodoStatusType
 
@@ -51,7 +51,7 @@ def update_todos(merge, todos, checkpoint_path):
             raise ValueError(result.error)
         else:
             raise IOError(result.error)
-    return result.result
+    return result.content
 
 def get_todos(checkpoint_path):
     """Get todos from checkpoint"""
@@ -422,7 +422,7 @@ class TestTodoToolClass:
 
     @pytest.mark.skipif(TodoTool is None, reason="TodoTool not available in this module")
     def test_tool_execute_returns_result(self, tmp_checkpoint):
-        """Test tool execute returns TodoResult."""
+        """Test tool execute returns TodoToolResponse."""
         tool = TodoTool(checkpoint_path=tmp_checkpoint)
         todos = [
             {'id': 'task1', 'content': 'Task 1', 'status': 'pending'},
@@ -431,7 +431,7 @@ class TestTodoToolClass:
 
         result = tool.execute(merge=False, todos=todos)
 
-        assert isinstance(result, TodoResult)
+        assert isinstance(result, TodoToolResponse)
         assert result.success is True
 
     @pytest.mark.skipif(TodoTool is None, reason="TodoTool not available in this module")
@@ -451,7 +451,7 @@ class TestTodoToolClass:
 
     @pytest.mark.skipif(TodoTool is None, reason="TodoTool not available in this module")
     def test_tool_get_todos(self, tmp_checkpoint):
-        """Test tool get_todos method."""
+        """Test tool returns todos in response."""
         tool = TodoTool(checkpoint_path=tmp_checkpoint)
 
         # Create todos
@@ -459,12 +459,12 @@ class TestTodoToolClass:
             {'id': 'task1', 'content': 'Task 1', 'status': 'pending'},
             {'id': 'task2', 'content': 'Task 2', 'status': 'pending'}
         ]
-        tool.execute(merge=False, todos=todos)
+        result = tool.execute(merge=False, todos=todos)
 
-        # Get todos
-        result = tool.get_todos()
+        # Check todos in response
         assert result.success is True
-        assert len(result.result) == 2
+        assert hasattr(result, 'todos')
+        assert len(result.todos) == 2
 
     @pytest.mark.skipif(TodoTool is None, reason="TodoTool not available in this module")
     def test_tool_update_status(self, tmp_checkpoint):

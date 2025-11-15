@@ -11,11 +11,13 @@ This module provides a comprehensive todo system with:
 import json
 import pathlib
 from dataclasses import dataclass, asdict
-from typing import List, Union, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union
 
-from .base import BaseTool, ToolConfig, ToolResult
+from .base import BaseTool, ToolResponse, ToolResponseMetadata, ToolResponseType, _IntactType
 from .utils.unique_id import generate_unique_id
 
+
+TOOL_NAME = 'todo'
 
 @dataclass(frozen=True)
 class TodoStatusType:
@@ -46,11 +48,27 @@ class TodoItem:
 
 
 @dataclass
-class TodoResult(ToolResult):
+class TodoToolResponseMetadata(ToolResponseMetadata):
     """
-    Result from todo tool execution.
+    Metadata for todo tool response.
+
+    Attributes:
+        checkpoint_path: Path to the checkpoint file
+        merge: Whether todos were merged or replaced
+        todos_count: Number of todos in the result
     """
-    todos: Optional[List[Dict[str, Any]]] = None
+    checkpoint_path: Optional[str] = None
+    merge: Optional[bool] = None
+
+@dataclass
+class TodoToolResponse(ToolResponse):
+    """
+    Response from todo tool execution.
+
+    Extends ToolResponse with a todos field containing the list of todo items.
+    """
+    tool_name: str = TOOL_NAME
+    todos: Optional[List[TodoItem]] = None
 
 
 class TodoTool(BaseTool):
@@ -61,7 +79,7 @@ class TodoTool(BaseTool):
 
     Requires checkpoint_path to be provided in config for persistence.
     """
-    name = 'todo'
+    name = TOOL_NAME
 
     def __init__(self, **kwargs):
         """
@@ -197,8 +215,11 @@ class TodoTool(BaseTool):
         self,
         merge: bool,
         todos: List[Dict[str, Any]],
+        as_type: Union[str, _IntactType] = ToolResponseType.PRETTY_STR,
+        filter_empty_fields: bool = True,
+        filter_metadata_fields: bool = False,
         **kwargs
-    ) -> TodoResult:
+    ) -> Any:
         """
         Main execution interface for agent - delegates to update_todos.
 
@@ -208,42 +229,56 @@ class TodoTool(BaseTool):
         Args:
             merge: Whether to merge with existing todos or replace them
             todos: Array of todo items with id, content, and status fields
+            as_type: Output format type for the response
+            filter_empty_fields: Whether to filter empty fields in output
+            filter_metadata_fields: Whether to filter metadata fields in output
             **kwargs: Additional parameters (ignored for compatibility)
 
         Returns:
-            TodoResult from update_todos operation
+            TodoToolResponse (or converted format based on as_type)
         """
-        return self.update_todos(merge=merge, todos=todos, **kwargs)
+        return self.update_todos(
+            merge=merge,
+            todos=todos,
+            as_type=as_type,
+            filter_empty_fields=filter_empty_fields,
+            filter_metadata_fields=filter_metadata_fields
+        )
 
     def update_todos(
         self,
         merge: bool,
         todos: List[Dict[str, Any]],
-        **kwargs
-    ) -> TodoResult:
+        as_type: Union[str, _IntactType] = ToolResponseType.PRETTY_STR,
+        filter_empty_fields: bool = True,
+        filter_metadata_fields: bool = True,
+    ) -> Any:
         """
         Create and manage a structured task list for coding sessions.
 
         Args:
             merge: Whether to merge with existing todos (True) or replace them (False)
             todos: Array of todo items with id, content, and status fields
-            **kwargs: Additional parameters (ignored for compatibility)
+            as_type: Output format type for the response
+            filter_empty_fields: Whether to filter empty fields in output
+            filter_metadata_fields: Whether to filter metadata fields in output
 
         Returns:
-            TodoResult with success status and message
+            TodoToolResponse (or converted format based on as_type)
 
         Raises:
             ValueError: If todo items are invalid
             IOError: If checkpoint file operations fail
         """
         self._validate_initialized()
+        dumping_kwargs = self._parse_dump_kwargs(locals())
+
+        # Convert checkpoint_path to Path object
+        checkpoint_path = pathlib.Path(self.checkpoint_path)
 
         try:
             # Validate input todos
             validated_todos = self.validate_todo_items(todos)
-
-            # Convert checkpoint_path to Path object
-            checkpoint_path = pathlib.Path(self.checkpoint_path)
 
             # Handle merge vs replace logic
             if merge:
@@ -289,27 +324,30 @@ class TodoTool(BaseTool):
                     'checkpoint_path': str(checkpoint_path)
                 })
 
-            return TodoResult(
+            return TodoToolResponse(
                 success=True,
-                result=message,
-                metadata={
-                    'merge': merge,
-                    'todos_count': len(final_todos),
-                    'checkpoint_path': str(checkpoint_path)
-                }
-            )
+                content=message,
+                todos=final_todos,
+                metadata=TodoToolResponseMetadata(
+                    checkpoint_path=str(checkpoint_path)
+                )
+            ).dump(**dumping_kwargs)
 
         except (ValueError, TypeError) as e:
             self.logger.error(f"Todo validation error: {e}")
-            return TodoResult(
+            return TodoToolResponse(
                 success=False,
                 error=str(e),
-                metadata={'operation': 'update_todos'}
-            )
+                metadata=TodoToolResponseMetadata(
+                    checkpoint_path=str(checkpoint_path)
+                )
+            ).dump(**dumping_kwargs)
         except IOError as e:
             self.logger.error(f"Todo checkpoint error: {e}")
-            return TodoResult(
+            return TodoToolResponse(
                 success=False,
                 error=str(e),
-                metadata={'operation': 'update_todos'}
-            )
+                metadata=TodoToolResponseMetadata(
+                    checkpoint_path=str(checkpoint_path)
+                )
+            ).dump(**dumping_kwargs)

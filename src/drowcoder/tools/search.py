@@ -11,16 +11,18 @@ This module provides file content search functionality with:
 
 import os
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Union, Dict, Any
+from typing import Any, List, Optional, Union
 
 from path_tree_graph import PathTree, PathTreeNode, TreeGraph
 
-from .base import BaseTool, ToolResult
+from .base import BaseTool, ToolResponse, ToolResponseMetadata, ToolResponseType, _IntactType
 from .utils.ext import EXT_PATTERNS_FOR_BASE_EXCLUDE
 from .utils.ignore import IgnoreController
 
+
+TOOL_NAME = 'search'
 
 @dataclass
 class LineMeta:
@@ -221,15 +223,33 @@ class TreeGraphForSearchTool(TreeGraph):
 
 
 @dataclass
-class SearchToolResult(ToolResult):
+class SearchToolResponseMetadata(ToolResponseMetadata):
     """
-    Result from search tool execution.
+    Metadata for search tool response.
 
-    Extends ToolResult with search-specific information.
+    Attributes:
+        path: The search path
+        content_pattern: The content pattern used for searching
+        filepath_pattern: The file pattern used for filtering
+        files_found: Number of files that matched the search
+        total_matches: Total number of matches across all files
     """
-    results: Optional[List[FileMatchMeta]] = None
-    files_found: int = 0
-    total_matches: int = 0
+    path: str
+    content_pattern: str
+    filepath_pattern: str
+    files_found: Union[int] = None
+    total_matches: Union[int] = None
+
+
+@dataclass
+class SearchToolResponse(ToolResponse):
+    """
+    Response from search tool execution.
+
+    Extends ToolResponse with search-specific information.
+    The content field contains formatted search results.
+    """
+    tool_name: str = TOOL_NAME
 
 
 class SearchTool(BaseTool):
@@ -239,7 +259,7 @@ class SearchTool(BaseTool):
     Supports regex pattern matching, file pattern filtering,
     workspace boundary checking, and multiple output formats.
     """
-    name = 'search'
+    name = TOOL_NAME
 
     def execute(
         self,
@@ -254,8 +274,10 @@ class SearchTool(BaseTool):
         only_filename: bool = False,
         enable_ignore: bool = True,
         shell_policy: str = "auto",
-        **kwargs
-    ) -> SearchToolResult:
+        as_type: Union[str, _IntactType] = ToolResponseType.PRETTY_STR,
+        filter_empty_fields: bool = True,
+        filter_metadata_fields: bool = False,
+    ) -> Any:
         """
         Execute search operation.
 
@@ -271,12 +293,15 @@ class SearchTool(BaseTool):
             only_filename: If True, only return filename and match count; if False, return detailed content
             enable_ignore: Enable .drowignore file filtering
             shell_policy: Shell policy for command parsing (auto/unix/powershell)
-            **kwargs: Additional parameters (ignored for compatibility)
+            as_type: Output format type for the response
+            filter_empty_fields: Whether to filter empty fields in output
+            filter_metadata_fields: Whether to filter metadata fields in output
 
         Returns:
-            SearchToolResult with search results and metadata
+            SearchToolResponse (or converted format based on as_type)
         """
         self._validate_initialized()
+        dumping_kwargs = self._parse_dump_kwargs(locals())
 
         try:
             # Handle cwd
@@ -413,19 +438,17 @@ class SearchTool(BaseTool):
 
             self.logger.info(f"Search completed: {files_found} files found, {total_matches} total matches")
 
-            return SearchToolResult(
+            return SearchToolResponse(
                 success=True,
-                result=formatted_output,
-                results=results if not as_text and not as_graph else None,
-                files_found=files_found,
-                total_matches=total_matches,
-                metadata={
-                    "tool": self.name,
-                    "path": str(search_path),
-                    "content_pattern": content_pattern,
-                    "filepath_pattern": filepath_pattern
-                }
-            )
+                content=formatted_output,
+                metadata=SearchToolResponseMetadata(
+                    path=path,
+                    content_pattern=content_pattern,
+                    filepath_pattern=file_patterns,
+                    files_found=files_found,
+                    total_matches=total_matches,
+                )
+            ).dump(**dumping_kwargs)
 
         except re.error as e:
             # Re-raise regex errors directly (matches original behavior)
@@ -434,12 +457,15 @@ class SearchTool(BaseTool):
             error_msg = f"Search failed: {str(e)}"
             self.logger.error(error_msg)
 
-            return SearchToolResult(
+            return SearchToolResponse(
                 success=False,
                 error=error_msg,
-                files_found=0,
-                total_matches=0
-            )
+                metadata=SearchToolResponseMetadata(
+                    path=path,
+                    content_pattern=content_pattern,
+                    filepath_pattern=file_patterns,
+                )
+            ).dump(**dumping_kwargs)
 
     def _is_within_workspace(self, path: str, workspace_root: str) -> bool:
         """

@@ -8,19 +8,31 @@ interface and initialization pattern.
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional, Union
 
-from .base import BaseTool, ToolResult
+from .base import BaseTool, ToolResponse, ToolResponseMetadata, ToolResponseType, _IntactType
 
+
+TOOL_NAME = 'load'
 
 @dataclass
-class LoadResult(ToolResult):
+class LoadToolResponse(ToolResponse):
     """
-    Result from load tool execution.
+    Response from load tool execution.
+
+    Extends ToolResponse for file loading operations.
+    The content field contains the loaded file content as a string.
+    """
+    tool_name: str = TOOL_NAME
+
+@dataclass
+class LoadToolResponseMetadata(ToolResponseMetadata):
+    """
+    Response metadata from load tool execution.
+
+    Extends ToolResponseMetadata with load-specific fields.
 
     Attributes:
-        success: Whether the file loading succeeded
-        result: The file content as string
         file_path: The resolved file path that was loaded
         file_size: Size of the loaded file in bytes
     """
@@ -38,9 +50,17 @@ class LoadTool(BaseTool):
     - Home directory: ~/file.txt
     - Environment variables: $HOME/file.txt
     """
-    name = 'load'
+    name = TOOL_NAME
 
-    def execute(self, file_path: str, ensure_abs: bool = True, **kwargs) -> LoadResult:
+    def execute(
+        self,
+        file_path: str,
+        ensure_abs: bool = True,
+        as_type: Union[str, _IntactType] = ToolResponseType.PRETTY_STR,
+        filter_empty_fields: bool = True,
+        filter_metadata_fields: bool = False,
+        **kwargs,
+    ) -> Any:
         """
         Load the content of a file as plain text.
 
@@ -54,12 +74,16 @@ class LoadTool(BaseTool):
                       - Home directory: ~/file.txt
                       - Environment variables: $HOME/file.txt
             ensure_abs: Whether to resolve path to absolute form (default: True)
+            as_type: Output format type for the response
+            filter_empty_fields: Whether to filter empty fields in output
+            filter_metadata_fields: Whether to filter metadata fields in output
             **kwargs: Additional parameters (ignored for compatibility)
 
         Returns:
-            LoadResult with file content or error message
+            LoadToolResponse (or converted format based on as_type)
         """
         self._validate_initialized()
+        dumping_kwargs = self._parse_dump_kwargs(locals())
 
         try:
             # Preserve original logic exactly
@@ -73,12 +97,13 @@ class LoadTool(BaseTool):
                 error_msg = f"Error: File '{file_path}' not found."
                 self.logger.warning(error_msg)
 
-                return LoadResult(
+                return LoadToolResponse(
                     success=False,
-                    result=error_msg,
                     error=error_msg,
-                    file_path=str(path_obj)
-                )
+                    metadata=LoadToolResponseMetadata(
+                        file_path = str(path_obj)
+                    ),
+                ).dump(**dumping_kwargs)
 
             # Read file content
             with open(path_obj, "r", encoding="utf-8") as f:
@@ -96,36 +121,32 @@ class LoadTool(BaseTool):
 
             self.logger.info(f"Successfully loaded file: {path_obj} ({file_size} bytes)")
 
-            return LoadResult(
+            return LoadToolResponse(
                 success=True,
-                result=content,
-                file_path=str(path_obj),
-                file_size=file_size,
-                metadata={
-                    "tool": self.name,
-                    "content_length": len(content),
-                    "file_size_bytes": file_size
-                }
-            )
+                content=content,
+                metadata=LoadToolResponseMetadata(
+                    file_path=str(path_obj),
+                    file_size=file_size
+                )
+            ).dump(**dumping_kwargs)
 
         except FileNotFoundError:
             error_msg = f"Error: File '{file_path}' not found."
             self.logger.error(error_msg)
 
-            return LoadResult(
+            return LoadToolResponse(
                 success=False,
-                result=error_msg,
-                error=error_msg,
-                file_path=file_path
-            )
+                error=error_msg
+            ).dump(**dumping_kwargs)
 
         except Exception as e:
             error_msg = f"Error reading file: {str(e)}"
             self.logger.error(error_msg)
 
-            return LoadResult(
+            return LoadToolResponse(
                 success=False,
-                result=error_msg,
                 error=error_msg,
-                file_path=file_path
-            )
+                metadata=LoadToolResponseMetadata(
+                    file_path=file_path
+                )
+            ).dump(**dumping_kwargs)

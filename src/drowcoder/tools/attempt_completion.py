@@ -6,34 +6,31 @@ interface and initialization pattern.
 """
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Union, Any
 
-from .base import BaseTool, ToolConfig, ToolResult
+from .base import BaseTool, ToolResponse, ToolResponseMetadata, ToolResponseType, _IntactType
 
 
-@dataclass
-class AttemptCompletionConfig(ToolConfig):
-    """
-    Configuration for attempt_completion tool.
-
-    Inherits all base configuration fields from ToolConfig.
-    No additional fields needed for this simple tool.
-    """
-    pass
-
+TOOL_NAME = 'attempt_completion'
 
 @dataclass
-class AttemptCompletionResult(ToolResult):
+class AttemptCompletionToolResponse(ToolResponse):
     """
-    Result from attempt_completion tool execution.
+    Response from attempt_completion tool execution.
 
-    Attributes:
-        success: Whether the completion marking succeeded
-        result: Confirmation message
-        result_description: The user-provided result description
+    Extends ToolResponse with no additional fields.
+    Uses standard success/content/error fields from base class.
     """
-    result_description: Optional[str] = None
+    tool_name: str = TOOL_NAME
 
+@dataclass
+class AttemptCompletionToolResponseMetadata(ToolResponseMetadata):
+    """
+    Metadata for attempt_completion tool response.
+
+    Currently contains no additional fields beyond base ToolResponseMetadata.
+    This class exists for consistency and future extensibility.
+    """
 
 class AttemptCompletionTool(BaseTool):
     """
@@ -42,9 +39,16 @@ class AttemptCompletionTool(BaseTool):
     This is the simplest tool in the system, serving as a signal
     that the agent has completed the requested task.
     """
-    name = 'attempt_completion'
+    name = TOOL_NAME
 
-    def execute(self, result: str, **kwargs) -> AttemptCompletionResult:
+    def execute(
+        self,
+        result: str,
+        as_type: Union[str, _IntactType] = ToolResponseType.PRETTY_STR,
+        filter_empty_fields: bool = True,
+        filter_metadata_fields: bool = True,
+        **kwargs
+    ) -> Any:
         """
         Mark the current task as completed.
 
@@ -59,6 +63,7 @@ class AttemptCompletionTool(BaseTool):
             AttemptCompletionResult with success status and confirmation message
         """
         self._validate_initialized()
+        dumping_kwargs = self._parse_dump_kwargs(locals())
 
         try:
             # Preserve original logic exactly
@@ -72,22 +77,16 @@ class AttemptCompletionTool(BaseTool):
 
             self.logger.info(f"Task marked as completed: {result}")
 
-            return AttemptCompletionResult(
+            return AttemptCompletionToolResponse(
                 success=True,
-                result=message,
-                result_description=result,
-                metadata={
-                    "tool": self.name,
-                    "result_length": len(result)
-                }
-            )
+                content=message,
+            ).dump(**dumping_kwargs)
 
         except Exception as e:
             error_msg = f"Failed to mark task as completed: {str(e)}"
             self.logger.error(error_msg)
 
-            return AttemptCompletionResult(
+            return AttemptCompletionToolResponse(
                 success=False,
                 error=error_msg,
-                result_description=result
-            )
+            ).dump(**dumping_kwargs)

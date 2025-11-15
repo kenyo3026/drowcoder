@@ -37,7 +37,7 @@ TEST_MODULE = os.environ.get('TEST_SEARCH_MODULE', 'search')
 # Dynamically import the specified module
 search_module = importlib.import_module(f'drowcoder.tools.{TEST_MODULE}')
 SearchTool = getattr(search_module, 'SearchTool', None)
-SearchToolResult = getattr(search_module, 'SearchToolResult', None)
+SearchToolResponse = getattr(search_module, 'SearchToolResponse', None)
 FileMatchMeta = getattr(search_module, 'FileMatchMeta', None)
 LineMeta = getattr(search_module, 'LineMeta', None)
 
@@ -325,8 +325,8 @@ class TestSearchToolClass:
             assert tool._initialized is True
 
     def test_tool_execute_returns_result(self, tmp_path, test_files):
-        """Test that tool.execute() returns SearchToolResult."""
-        if SearchTool and SearchToolResult:
+        """Test that tool.execute() returns SearchToolResponse."""
+        if SearchTool and SearchToolResponse:
             tool = SearchTool()
             result = tool.execute(
                 path=str(tmp_path),
@@ -335,7 +335,7 @@ class TestSearchToolClass:
                 cwd=str(tmp_path)
             )
 
-            assert isinstance(result, SearchToolResult)
+            assert isinstance(result, SearchToolResponse)
             assert result.success is True
 
     def test_tool_with_logger(self, tmp_path, test_files):
@@ -387,7 +387,7 @@ class TestSearchToolClass:
 
     def test_tool_metadata(self, tmp_path, test_files):
         """Test result contains metadata."""
-        if SearchTool and SearchToolResult:
+        if SearchTool and SearchToolResponse:
             tool = SearchTool()
             result = tool.execute(
                 path=str(tmp_path),
@@ -401,11 +401,11 @@ class TestSearchToolClass:
 
 
 class TestSearchResultProperties:
-    """Test SearchToolResult properties."""
+    """Test SearchToolResponse properties."""
 
     def test_result_files_found(self, tmp_path, test_files):
         """Test files_found property."""
-        if SearchTool and SearchToolResult:
+        if SearchTool and SearchToolResponse:
             tool = SearchTool()
             result = tool.execute(
                 path=str(tmp_path),
@@ -419,7 +419,7 @@ class TestSearchResultProperties:
 
     def test_result_total_matches(self, tmp_path, test_files):
         """Test total_matches property."""
-        if SearchTool and SearchToolResult:
+        if SearchTool and SearchToolResponse:
             tool = SearchTool()
             result = tool.execute(
                 path=str(tmp_path),
