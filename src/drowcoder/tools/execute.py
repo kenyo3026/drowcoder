@@ -12,21 +12,22 @@ This module provides command execution functionality with:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict, field
+from dataclasses import dataclass, asdict
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional, Union
 import subprocess
 import time
 import os
 
-from .base import BaseTool, ToolResult
+from .base import BaseTool, ToolResponse, ToolResponseMetadata, ToolResponseType, _IntactType
 from .utils.ignore import IGNORE_FILENAME, IgnoreController
 
+TOOL_NAME = 'execute_cmd'
 
 @dataclass
-class CommandConfig:
+class CmdConfig:
     """Configuration for executing a command."""
-    command: str
+    cmd: str
     cwd: Optional[Path] = None
     timeout_seconds: int = 0  # 0 means no timeout
     shell: bool = True
@@ -38,9 +39,9 @@ class CommandConfig:
 
 
 @dataclass
-class CommandResult:
-    """Result of a command execution."""
-    command: str
+class CmdResponse:
+    """Response from a command execution."""
+    cmd: str
     cwd: Optional[Path]
     exit_code: Optional[int]
     output: str
@@ -60,15 +61,26 @@ class CommandResult:
         _dict = self.to_dict()
         return '\n'.join([f'{key}: {str(value)}' for key, value in _dict.items()])
 
+@dataclass
+class ExecuteToolResponse(ToolResponse):
+    """
+    Response from execute tool execution.
+
+    Extends ToolResponse with command execution-specific information.
+    """
+    tool_name: str = TOOL_NAME
 
 @dataclass
-class ExecuteToolResult(ToolResult):
+class ExecuteToolResponseMetadata(ToolResponseMetadata):
     """
-    Result from execute tool execution.
+    Response metadata from execute tool execution.
 
-    Extends ToolResult with command execution-specific information.
+    Extends ToolResponseMetadata with command execution-specific fields.
+
+    Attributes:
+        cmd_response: The detailed command execution response. None if execution failed before command ran.
     """
-    command_result: Optional[CommandResult] = None
+    cmd_response: Optional[CmdResponse] = None
 
 
 class ExecuteTool(BaseTool):
@@ -78,7 +90,7 @@ class ExecuteTool(BaseTool):
     Provides timeout protection, .drowignore validation,
     and structured result output.
     """
-    name = 'execute_command'
+    name = TOOL_NAME
 
     def __init__(self, **kwargs):
         """Initialize ExecuteTool."""
@@ -86,7 +98,7 @@ class ExecuteTool(BaseTool):
 
     def execute(
         self,
-        command: str,
+        cmd: str,
         cwd: Optional[str | Path] = None,
         timeout_seconds: int = 0,
         shell: bool = True,
@@ -95,12 +107,15 @@ class ExecuteTool(BaseTool):
         combine_stdout_stderr: bool = True,
         enable_ignore: bool = True,
         shell_policy: str = "auto",
-    ) -> ExecuteToolResult:
+        as_type: Union[str, _IntactType] = ToolResponseType.PRETTY_STR,
+        filter_empty_fields: bool = True,
+        filter_metadata_fields: bool = True,
+    ) -> Any:
         """
         Execute a shell command.
 
         Args:
-            command: The bash/shell command to execute
+            cmd: The bash/shell command to execute
             cwd: Working directory (defaults to current directory)
             timeout_seconds: Timeout in seconds (0 = no timeout)
             shell: Execute with shell=True
@@ -109,16 +124,22 @@ class ExecuteTool(BaseTool):
             combine_stdout_stderr: Combine stderr into stdout
             enable_ignore: Enable .drowignore validation
             shell_policy: Shell parsing policy for .drowignore ("auto", "unix", "powershell")
+            as_type: Output format type for the response
+            filter_empty_fields: Whether to filter empty fields in output
+            filter_metadata_fields: Whether to filter metadata fields in output
 
         Returns:
-            ExecuteToolResult with command execution details
+            ExecuteToolResponse (or converted format based on as_type)
         """
         self._validate_initialized()
+        dumping_kwargs = self._parse_dump_kwargs(locals())
+
+        cmd_response = None  # Initialize to avoid UnboundLocalError in exception handler
 
         try:
             # Create configuration
-            config = CommandConfig(
-                command=command,
+            config = CmdConfig(
+                cmd=cmd,
                 cwd=Path(cwd).resolve() if cwd else None,
                 timeout_seconds=timeout_seconds,
                 shell=shell,
@@ -130,44 +151,46 @@ class ExecuteTool(BaseTool):
             )
 
             # Execute command
-            cmd_result = self._run_command(config)
+            cmd_response = self._run_command(config)
 
             # Trigger callback if configured
             self._trigger_callback("command_executed", {
-                "command": command,
-                "exit_code": cmd_result.exit_code,
-                "duration_ms": cmd_result.duration_ms,
-                "timed_out": cmd_result.timed_out
+                "cmd": cmd,
+                "exit_code": cmd_response.exit_code,
+                "duration_ms": cmd_response.duration_ms,
+                "timed_out": cmd_response.timed_out
             })
 
-            self.logger.info(f"Command executed: {command} (exit_code={cmd_result.exit_code}, duration={cmd_result.duration_ms}ms)")
+            self.logger.info(f"Command executed: {cmd} (exit_code={cmd_response.exit_code}, duration={cmd_response.duration_ms}ms)")
 
-            return ExecuteToolResult(
+            return ExecuteToolResponse(
                 success=True,
-                command_result=cmd_result,
-                result=cmd_result.to_pretty_str()
-            )
+                content=cmd_response.to_pretty_str(),
+                metadata=ExecuteToolResponseMetadata(
+                    cmd_response=cmd_response,
+                )
+            ).dump(**dumping_kwargs)
 
         except Exception as e:
             error_msg = f"Command execution failed: {str(e)}"
             self.logger.error(error_msg)
 
-            return ExecuteToolResult(
+            return ExecuteToolResponse(
                 success=False,
-                error=error_msg
-            )
+                error=error_msg,
+            ).dump(**dumping_kwargs)
 
-    def _run_command(self, config: CommandConfig) -> CommandResult:
+    def _run_command(self, config: CmdConfig) -> CmdResponse:
         """Execute command based on configuration."""
 
         # Check .drowignore validation
         if config.enable_ignore:
             controller = IgnoreController(config.cwd or Path.cwd(), shell=config.shell_policy)
             controller.load()
-            blocked = controller.validate_command(config.command)
+            blocked = controller.validate_command(config.cmd)
             if blocked:
-                return CommandResult(
-                    command=config.command,
+                return CmdResponse(
+                    cmd=config.cmd,
                     cwd=config.cwd,
                     exit_code=1,
                     output="",
@@ -198,7 +221,7 @@ class ExecuteTool(BaseTool):
         exit_code: Optional[int] = None
 
         try:
-            proc = subprocess.Popen(config.command, **popen_kwargs)
+            proc = subprocess.Popen(config.cmd, **popen_kwargs)
             pid = proc.pid
 
             try:
@@ -230,8 +253,8 @@ class ExecuteTool(BaseTool):
             timeout_msg = f"Command execution timed out after {config.timeout_seconds}s"
             error_text = (error_text + "\n" + timeout_msg) if error_text else timeout_msg
 
-        return CommandResult(
-            command=config.command,
+        return CmdResponse(
+            cmd=config.cmd,
             cwd=config.cwd,
             exit_code=exit_code,
             output=output,

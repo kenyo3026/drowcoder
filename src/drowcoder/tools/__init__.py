@@ -13,7 +13,7 @@ from .search import SearchTool as search
 from .search_and_replace import SearchAndReplaceTool as search_and_replace
 from .attempt_completion import AttemptCompletionTool as attempt_completion
 from .write import WriteTool as write
-from .execute import ExecuteTool as execute_command
+from .execute import ExecuteTool as execute_cmd
 from .todo import TodoTool as update_todos
 
 

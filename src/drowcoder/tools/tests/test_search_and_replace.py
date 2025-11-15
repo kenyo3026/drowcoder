@@ -36,7 +36,7 @@ TEST_MODULE = os.environ.get('TEST_SAR_MODULE', 'search_and_replace')
 # Dynamically import the specified module
 sar_module = importlib.import_module(f'drowcoder.tools.{TEST_MODULE}')
 SearchAndReplaceTool = getattr(sar_module, 'SearchAndReplaceTool', None)
-SearchReplaceToolResult = getattr(sar_module, 'SearchReplaceToolResult', None)
+SearchAndReplaceToolResponse = getattr(sar_module, 'SearchAndReplaceToolResponse', None)
 
 # Helper function to maintain test compatibility
 def search_and_replace(file, search, replace, **kwargs):
@@ -433,7 +433,7 @@ class TestSearchAndReplaceToolClass:
 
     def test_tool_metadata(self, test_file):
         """Test result contains metadata."""
-        if SearchAndReplaceTool and SearchReplaceToolResult:
+        if SearchAndReplaceTool and SearchAndReplaceToolResponse:
             tool = SearchAndReplaceTool()
             result = tool.execute(
                 file=str(test_file),
@@ -447,7 +447,7 @@ class TestSearchAndReplaceToolClass:
 
 
 class TestSearchAndReplaceResultProperties:
-    """Test SearchReplaceToolResult properties."""
+    """Test SearchAndReplaceToolResponse properties."""
 
     def test_result_total_matches(self, test_file):
         """Test total_matches property."""

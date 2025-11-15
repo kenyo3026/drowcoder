@@ -34,7 +34,7 @@ TEST_MODULE = os.environ.get('TEST_EXEC_MODULE', 'execute')
 
 # Dynamically import the specified module
 exec_module = importlib.import_module(f'drowcoder.tools.{TEST_MODULE}')
-CommandResult = exec_module.CommandResult
+CmdResponse = exec_module.CmdResponse
 CommandExecutor = getattr(exec_module, 'CommandExecutor', getattr(exec_module, 'ExecuteTool', None))
 ExecuteTool = exec_module.ExecuteTool
 
@@ -44,7 +44,7 @@ def execute_command(command, cwd=None, timeout_seconds=0, shell=True, env=None,
     """Wrapper function for testing - creates tool instance and calls execute"""
     tool = ExecuteTool()
     tool_result = tool.execute(
-        command=command,
+        cmd=command,
         cwd=cwd,
         timeout_seconds=timeout_seconds,
         shell=shell,
@@ -54,14 +54,14 @@ def execute_command(command, cwd=None, timeout_seconds=0, shell=True, env=None,
         enable_ignore=enable_ignore,
         shell_policy=shell_policy,
     )
-    # Return CommandResult for backward compatibility
-    if tool_result.success and tool_result.command_result:
-        return tool_result.command_result
+    # Return CmdResponse for backward compatibility
+    if tool_result.success and tool_result.metadata and tool_result.metadata.cmd_response:
+        return tool_result.metadata.cmd_response
     else:
-        # On error, return a CommandResult with error information
+        # On error, return a CmdResponse with error information
         from pathlib import Path
-        return CommandResult(
-            command=command,
+        return CmdResponse(
+            cmd=command,
             cwd=Path(cwd).resolve() if cwd else None,
             exit_code=1,
             output="",
@@ -89,11 +89,11 @@ class TestExecuteBasic:
         """Test simple command execution."""
         result = execute_command("echo 'Hello World'")
 
-        # Original returns string, refactor returns CommandResult
+        # Original returns string, refactor returns CmdResponse
         if isinstance(result, str):
             assert "Hello World" in result
         else:
-            assert isinstance(result, CommandResult)
+            assert isinstance(result, CmdResponse)
             assert "Hello World" in result.output
             assert result.exit_code == 0
 
@@ -269,7 +269,7 @@ class TestExecuteToolClass:
                 from drowcoder.tools.execute import CommandConfig
                 config = CommandConfig(command="echo 'test'")
                 result = tool.run(config)
-                assert isinstance(result, CommandResult)
+                assert isinstance(result, CmdResponse)
 
     def test_tool_with_logger(self):
         """Test tool with custom logger."""
@@ -350,13 +350,13 @@ class TestExecuteEdgeCases:
 
 
 class TestExecuteResultProperties:
-    """Test CommandResult properties."""
+    """Test CmdResponse properties."""
 
     def test_result_has_required_fields(self):
         """Test that result has all required fields."""
         result = execute_command("echo 'test'")
 
-        if isinstance(result, CommandResult):
+        if isinstance(result, CmdResponse):
             assert hasattr(result, 'command')
             assert hasattr(result, 'exit_code')
             assert hasattr(result, 'output')
@@ -365,20 +365,20 @@ class TestExecuteResultProperties:
             assert hasattr(result, 'pid')
 
     def test_result_to_dict(self):
-        """Test CommandResult.to_dict() method."""
+        """Test CmdResponse.to_dict() method."""
         result = execute_command("echo 'test'")
 
-        if isinstance(result, CommandResult):
+        if isinstance(result, CmdResponse):
             result_dict = result.to_dict()
             assert isinstance(result_dict, dict)
             assert 'command' in result_dict
             assert 'exit_code' in result_dict
 
     def test_result_to_pretty_str(self):
-        """Test CommandResult.to_pretty_str() method."""
+        """Test CmdResponse.to_pretty_str() method."""
         result = execute_command("echo 'test'")
 
-        if isinstance(result, CommandResult):
+        if isinstance(result, CmdResponse):
             pretty_str = result.to_pretty_str()
             assert isinstance(pretty_str, str)
             assert 'command:' in pretty_str

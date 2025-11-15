@@ -35,7 +35,7 @@ TEST_MODULE = os.environ.get('TEST_WRITE_MODULE', 'write')
 # Dynamically import the specified module
 write_module = importlib.import_module(f'drowcoder.tools.{TEST_MODULE}')
 WriteTool = getattr(write_module, 'WriteTool', None)
-WriteToolResult = getattr(write_module, 'WriteToolResult', None)
+WriteToolResponse = getattr(write_module, 'WriteToolResponse', None)
 
 # Helper function to maintain test compatibility
 def write(file_path, content, mode="apply", output_style="default", operation="overwrite", output_file=None, **kwargs):
@@ -352,14 +352,14 @@ class TestWriteToolClass:
             assert tool._initialized is True
 
     def test_tool_execute_returns_result(self, tmp_path):
-        """Test that tool.execute() returns WriteToolResult."""
-        if WriteTool and WriteToolResult:
+        """Test that tool.execute() returns WriteToolResponse."""
+        if WriteTool and WriteToolResponse:
             tool = WriteTool()
             test_file = tmp_path / "test.txt"
 
             result = tool.execute(str(test_file), "Test content", mode="apply")
 
-            assert isinstance(result, WriteToolResult)
+            assert isinstance(result, WriteToolResponse)
             assert result.success is True
 
     def test_tool_with_logger(self, tmp_path):
@@ -401,7 +401,7 @@ class TestWriteToolClass:
 
     def test_tool_metadata(self, tmp_path):
         """Test result contains metadata."""
-        if WriteTool and WriteToolResult:
+        if WriteTool and WriteToolResponse:
             tool = WriteTool()
             test_file = tmp_path / "test.txt"
 
@@ -412,7 +412,7 @@ class TestWriteToolClass:
 
 
 class TestWriteResultProperties:
-    """Test WriteToolResult properties."""
+    """Test WriteToolResponse properties."""
 
     def test_result_total_files_processed(self, tmp_path):
         """Test total_files_processed property."""

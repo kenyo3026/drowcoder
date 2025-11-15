@@ -32,7 +32,7 @@ TEST_MODULE = os.environ.get('TEST_ATTEMPT_COMPLETION_MODULE', 'attempt_completi
 # Dynamically import the specified module
 ac_module = importlib.import_module(f'drowcoder.tools.{TEST_MODULE}')
 AttemptCompletionTool = ac_module.AttemptCompletionTool
-AttemptCompletionResult = ac_module.AttemptCompletionResult
+AttemptCompletionToolResponse = ac_module.AttemptCompletionToolResponse
 
 # Helper function to maintain test compatibility
 def attempt_completion(result: str) -> str:
@@ -40,7 +40,7 @@ def attempt_completion(result: str) -> str:
     tool = AttemptCompletionTool()
     result_obj = tool.execute(result=result)
     if result_obj.success:
-        return result_obj.result
+        return result_obj.content
     else:
         return f"Error: {result_obj.error}"
 
@@ -199,13 +199,13 @@ class TestAttemptCompletionClass:
         assert tool._initialized is True
 
     def test_tool_execute_returns_result(self):
-        """Test tool execute returns AttemptCompletionResult."""
+        """Test tool execute returns AttemptCompletionToolResponse."""
         tool = AttemptCompletionTool()
         result = tool.execute(result="Test")
 
-        assert isinstance(result, AttemptCompletionResult)
+        assert isinstance(result, AttemptCompletionToolResponse)
         assert result.success is True
-        assert "Task completed successfully: Test" in result.result
+        assert "Task completed successfully: Test" in result.content
 
     def test_tool_with_logger(self):
         """Test tool with custom logger."""
@@ -239,13 +239,12 @@ class TestAttemptCompletionClass:
             tool.execute(result="Test")
 
     def test_tool_metadata(self):
-        """Test result contains metadata."""
+        """Test result contains tool_name."""
         tool = AttemptCompletionTool()
         result = tool.execute(result="Test")
 
-        assert "metadata" in result.__dict__
-        assert result.metadata["tool"] == "attempt_completion"
-        assert result.metadata["result_length"] == 4
+        assert result.tool_name == "attempt_completion"
+        assert result.success is True
 
 
 class TestAttemptCompletionParametrized:

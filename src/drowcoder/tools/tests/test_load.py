@@ -33,14 +33,14 @@ TEST_MODULE = os.environ.get('TEST_LOAD_MODULE', 'load')
 # Dynamically import the specified module
 load_module = importlib.import_module(f'drowcoder.tools.{TEST_MODULE}')
 LoadTool = load_module.LoadTool
-LoadResult = load_module.LoadResult
+LoadToolResponse = load_module.LoadToolResponse
 
 # Helper function to maintain test compatibility
 def load(file_path: str, ensure_abs: bool = True) -> str:
     """Wrapper function for testing - creates tool instance and calls execute"""
     tool = LoadTool()
     result = tool.execute(file_path=file_path, ensure_abs=ensure_abs)
-    return result.result
+    return result.content
 
 
 class TestLoadBasic:
@@ -239,15 +239,15 @@ class TestLoadToolClass:
     """Tests for LoadTool class interface."""
 
     def test_tool_execute_returns_result(self, tmp_path):
-        """Test that tool.execute() returns LoadResult."""
+        """Test that tool.execute() returns LoadToolResponse."""
         tool = LoadTool()
         test_file = tmp_path / "test.txt"
         test_file.write_text("Test content")
 
         result = tool.execute(str(test_file))
-        assert isinstance(result, LoadResult)
+        assert isinstance(result, LoadToolResponse)
         assert result.success is True
-        assert result.result == "Test content"
+        assert result.content == "Test content"
 
     def test_tool_with_logger(self, tmp_path):
         """Test tool with custom logger."""

@@ -1,7 +1,7 @@
 tools:
   - type: function
     function:
-      name: execute_command
+      name: execute_cmd
       description: |
         Execute a bash/shell command and return the formatted output including exit code and execution time.
         This tool provides safe command execution with timeout protection and ignore file validation.
@@ -9,7 +9,7 @@ tools:
       parameters:
         type: object
         properties:
-          command:
+          cmd:
             type: string
             description: |
               The bash command to execute. Can be any valid shell command including:
@@ -19,4 +19,4 @@ tools:
               - System commands (ps, df, top)
               - Git operations (git status, git commit)
         required:
-          - command
+          - cmd
