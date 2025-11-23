@@ -73,11 +73,33 @@ agent.initialize()
 response = agent.process("Your instruction")
 ```
 
-## 📚 Quick Start
+## 📚 Documentation
+
+### Quick Start
 
 1. **Check Examples**: See [examples/basic_usage.py](examples/basic_usage.py)
-2. **Learn Usage**: Read [docs/usage.md](docs/usage.md)
-3. **Development Guide**: Check other documentation in the project
+2. **Learn Usage**: Read [docs/usage.md](docs/usage.md) - User guide for getting started
+3. **Explore Tools**: Browse tool documentation in [src/drowcoder/tools/](src/drowcoder/tools/)
+
+### Core Modules
+
+- **[Entry Points](src/drowcoder/docs/main.md)** - CLI entry points (main, cli, develop, debug)
+- **[Agent](src/drowcoder/docs/agent.md)** - Agent entry script
+- **[Checkpoint](src/drowcoder/docs/checkpoint.md)** - Checkpoint system for state management
+- **[Config](src/drowcoder/docs/config.md)** - Configuration file management
+- **[Model](src/drowcoder/docs/model.md)** - Model dispatcher and role management
+- **[Verbose](src/drowcoder/docs/verbose.md)** - Message output formatting system
+
+### Tools
+
+- **[Base Tool](src/drowcoder/tools/base.md)** - Tool architecture and base classes
+- **[Attempt Completion](src/drowcoder/tools/attempt-completion.md)** - Task completion signaling
+- **[Execute](src/drowcoder/tools/execute.md)** - Command execution
+- **[Load](src/drowcoder/tools/load.md)** - File loading
+- **[Search](src/drowcoder/tools/search.md)** - Content searching
+- **[Search and Replace](src/drowcoder/tools/search-and-replace.md)** - Text replacement
+- **[Todo](src/drowcoder/tools/todo.md)** - Task management
+- **[Write](src/drowcoder/tools/write.md)** - File writing
 
 ## 🏗️ Project Structure
 
@@ -87,11 +109,22 @@ drowcoder/
 │   ├── main.py            # Core logic
 │   ├── cli.py             # Production CLI
 │   ├── develop.py         # Development CLI
+│   ├── debug.py           # Debug mode
 │   ├── agent.py           # AI agent core
+│   ├── docs/              # Module documentation
+│   │   ├── agent.md       # Agent entry script
+│   │   ├── checkpoint.md  # Checkpoint system
+│   │   ├── config.md      # Configuration management
+│   │   ├── main.md        # Entry points
+│   │   ├── model.md       # Model dispatcher
+│   │   └── verbose.md     # Output formatting
 │   ├── tools/             # Tool collection
+│   │   ├── *.md           # Individual tool docs
+│   │   └── *.py           # Tool implementations
 │   └── prompts/           # System prompts
+├── docs/                  # User documentation
+│   └── usage.md           # Usage guide
 ├── examples/              # Usage examples
-├── docs/                  # Documentation
 ├── configs/               # Configuration files
 ├── checkpoints/           # Checkpoints (development)
 └── pyproject.toml         # Package configuration
@@ -125,9 +158,12 @@ python -m src.drowcoder.develop
 ## 💡 Need Help?
 
 - 🐛 **Report Issues**: [GitHub Issues](https://github.com/kenyo3026/drowcoder/issues)
-- 📖 **View Documentation**: Browse [docs/](docs/) directory
+- 📖 **Documentation**:
+  - [User Guide](docs/usage.md) - Getting started and usage guide
+  - [Core Modules](src/drowcoder/docs/) - Technical documentation for core modules
+  - [Tools](src/drowcoder/tools/) - Individual tool documentation
 - 💡 **Check Examples**: See [examples/](examples/) directory
-- 🔧 **Development Guide**: Read [docs/usage.md](docs/usage.md)
+- 🔧 **Development**: See [Development](#-development) section above
 
 ## 📄 License
 
