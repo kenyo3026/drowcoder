@@ -34,8 +34,8 @@ src/drowcoder/tools/tests/reports/*
 test_*.py
 !src/drowcoder/tools/tests/test_*.py
 
-# TODO
-TODO.md
+# TODO (root directory only)
+/TODO.md
 
 # .drowignore
 .drowignore
