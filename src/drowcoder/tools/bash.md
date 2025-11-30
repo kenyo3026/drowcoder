@@ -1,8 +1,8 @@
-# Execute Tool
+# Bash Tool
 
 ## Overview
 
-The `execute` tool provides safe shell command execution with timeout protection, ignore file validation, and structured result output. It's designed for running tests, building projects, checking system status, or any shell operations.
+The `bash` tool provides safe shell command execution with timeout protection, ignore file validation, and structured result output. It's designed for running tests, building projects, checking system status, or any shell operations.
 
 ## Features
 
@@ -39,9 +39,9 @@ The `execute` tool provides safe shell command execution with timeout protection
 ### Basic Command Execution
 
 ```python
-from drowcoder.tools import ExecuteTool
+from drowcoder.tools import BashTool
 
-tool = ExecuteTool()
+tool = BashTool()
 
 response = tool.execute(
     cmd="ls -la",

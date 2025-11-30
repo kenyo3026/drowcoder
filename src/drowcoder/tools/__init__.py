@@ -13,7 +13,7 @@ from .search import SearchTool as search
 from .search_and_replace import SearchAndReplaceTool as search_and_replace
 from .attempt_completion import AttemptCompletionTool as attempt_completion
 from .write import WriteTool as write
-from .execute import ExecuteTool as execute_cmd
+from .bash import BashTool as bash
 from .todo import TodoTool as update_todos
 
 
@@ -72,7 +72,7 @@ class ToolManager:
 
         self.builtin_yamls = [
             'attempt_completion.yaml',
-            'execute.yaml',
+            'bash.yaml',
             'load.yaml',
             'search_and_replace.yaml',
             'search.yaml',

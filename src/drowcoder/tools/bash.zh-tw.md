@@ -1,8 +1,8 @@
-# 執行工具
+# Bash 工具
 
 ## 概述
 
-`execute` 工具提供安全的 shell 命令執行，具有超時保護、忽略檔案驗證和結構化結果輸出。它設計用於執行測試、建置專案、檢查系統狀態或任何 shell 操作。
+`bash` 工具提供安全的 shell 命令執行，具有超時保護、忽略檔案驗證和結構化結果輸出。它設計用於執行測試、建置專案、檢查系統狀態或任何 shell 操作。
 
 ## 功能
 
@@ -39,9 +39,9 @@
 ### 基本命令執行
 
 ```python
-from drowcoder.tools import ExecuteTool
+from drowcoder.tools import BashTool
 
-tool = ExecuteTool()
+tool = BashTool()
 
 response = tool.execute(
     cmd="ls -la",

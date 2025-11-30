@@ -1,5 +1,5 @@
 """
-Refactored execute tool using unified tool architecture.
+Refactored bash tool using unified tool architecture.
 
 This module provides command execution functionality with:
 - Safe shell command execution with timeout protection
@@ -22,7 +22,7 @@ import os
 from .base import BaseTool, ToolResponse, ToolResponseMetadata, ToolResponseType, _IntactType
 from .utils.ignore import IGNORE_FILENAME, IgnoreController
 
-TOOL_NAME = 'execute_cmd'
+TOOL_NAME = 'bash_cmd'
 
 @dataclass
 class CmdConfig:
@@ -62,18 +62,18 @@ class CmdResponse:
         return '\n'.join([f'{key}: {str(value)}' for key, value in _dict.items()])
 
 @dataclass
-class ExecuteToolResponse(ToolResponse):
+class BashToolResponse(ToolResponse):
     """
-    Response from execute tool execution.
+    Response from bash tool execution.
 
     Extends ToolResponse with command execution-specific information.
     """
     tool_name: str = TOOL_NAME
 
 @dataclass
-class ExecuteToolResponseMetadata(ToolResponseMetadata):
+class BashToolResponseMetadata(ToolResponseMetadata):
     """
-    Response metadata from execute tool execution.
+    Response metadata from bash tool execution.
 
     Extends ToolResponseMetadata with command execution-specific fields.
 
@@ -83,7 +83,7 @@ class ExecuteToolResponseMetadata(ToolResponseMetadata):
     cmd_response: Optional[CmdResponse] = None
 
 
-class ExecuteTool(BaseTool):
+class BashTool(BaseTool):
     """
     Tool for executing shell commands safely.
 
@@ -93,7 +93,7 @@ class ExecuteTool(BaseTool):
     name = TOOL_NAME
 
     def __init__(self, **kwargs):
-        """Initialize ExecuteTool."""
+        """Initialize BashTool."""
         super().__init__(**kwargs)
 
     def execute(
@@ -118,7 +118,7 @@ class ExecuteTool(BaseTool):
             cmd: The bash/shell command to execute
             cwd: Working directory (defaults to current directory)
             timeout_seconds: Timeout in seconds (0 = no timeout)
-            shell: Execute with shell=True
+            shell: Bash with shell=True
             env: Environment variables (merged with os.environ)
             encoding: Text encoding (default: utf-8)
             combine_stdout_stderr: Combine stderr into stdout
@@ -129,7 +129,7 @@ class ExecuteTool(BaseTool):
             filter_metadata_fields: Whether to filter metadata fields in output
 
         Returns:
-            ExecuteToolResponse (or converted format based on as_type)
+            BashToolResponse (or converted format based on as_type)
         """
         self._validate_initialized()
         dumping_kwargs = self._parse_dump_kwargs(locals())
@@ -150,7 +150,7 @@ class ExecuteTool(BaseTool):
                 shell_policy=shell_policy,
             )
 
-            # Execute command
+            # Bash command
             cmd_response = self._run_command(config)
 
             # Trigger callback if configured
@@ -163,10 +163,10 @@ class ExecuteTool(BaseTool):
 
             self.logger.info(f"Command executed: {cmd} (exit_code={cmd_response.exit_code}, duration={cmd_response.duration_ms}ms)")
 
-            return ExecuteToolResponse(
+            return BashToolResponse(
                 success=True,
                 content=cmd_response.to_pretty_str(),
-                metadata=ExecuteToolResponseMetadata(
+                metadata=BashToolResponseMetadata(
                     cmd_response=cmd_response,
                 )
             ).dump(**dumping_kwargs)
@@ -175,7 +175,7 @@ class ExecuteTool(BaseTool):
             error_msg = f"Command execution failed: {str(e)}"
             self.logger.error(error_msg)
 
-            return ExecuteToolResponse(
+            return BashToolResponse(
                 success=False,
                 error=error_msg,
             ).dump(**dumping_kwargs)

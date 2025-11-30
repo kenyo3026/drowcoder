@@ -94,7 +94,7 @@ response = agent.process("您的指令")
 
 - **[基礎工具](src/drowcoder/tools/base.md)** - 工具架構和基礎類別
 - **[嘗試完成](src/drowcoder/tools/attempt-completion.md)** - 任務完成信號
-- **[執行](src/drowcoder/tools/execute.md)** - 命令執行
+- **[Bash](src/drowcoder/tools/bash.md)** - 命令執行
 - **[載入](src/drowcoder/tools/load.md)** - 檔案載入
 - **[搜尋](src/drowcoder/tools/search.md)** - 內容搜尋
 - **[搜尋與替換](src/drowcoder/tools/search-and-replace.md)** - 文字替換

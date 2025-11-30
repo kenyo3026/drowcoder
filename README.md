@@ -94,7 +94,7 @@ response = agent.process("Your instruction")
 
 - **[Base Tool](src/drowcoder/tools/base.md)** - Tool architecture and base classes
 - **[Attempt Completion](src/drowcoder/tools/attempt-completion.md)** - Task completion signaling
-- **[Execute](src/drowcoder/tools/execute.md)** - Command execution
+- **[Bash](src/drowcoder/tools/bash.md)** - Command execution
 - **[Load](src/drowcoder/tools/load.md)** - File loading
 - **[Search](src/drowcoder/tools/search.md)** - Content searching
 - **[Search and Replace](src/drowcoder/tools/search-and-replace.md)** - Text replacement

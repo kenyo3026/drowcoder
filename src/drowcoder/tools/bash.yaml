@@ -1,7 +1,7 @@
 tools:
   - type: function
     function:
-      name: execute_cmd
+      name: bash
       description: |
         Execute a bash/shell command and return the formatted output including exit code and execution time.
         This tool provides safe command execution with timeout protection and ignore file validation.
