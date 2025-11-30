@@ -15,7 +15,7 @@ tests/
 ├── test_write.py                   # Tests for write tool
 ├── test_search.py                  # Tests for search tool
 ├── test_search_and_replace.py      # Tests for search_and_replace tool
-├── test_execute.py                 # Tests for execute tool
+├── test_bash.py                    # Tests for bash tool
 ├── reports/                        # Test reports (auto-generated)
 │   └── report_*.log                 # Git-aware test reports
 └── README.md                       # This file
@@ -35,7 +35,7 @@ python -m src.drowcoder.tools.tests.test_todo --module todo
 python -m src.drowcoder.tools.tests.test_write --module write
 python -m src.drowcoder.tools.tests.test_search --module search
 python -m src.drowcoder.tools.tests.test_search_and_replace --module search_and_replace
-python -m src.drowcoder.tools.tests.test_execute --module execute
+python -m src.drowcoder.tools.tests.test_bash --module bash
 
 # Test refactored tools
 python -m src.drowcoder.tools.tests.test_load --module load_refactor
@@ -44,7 +44,6 @@ python -m src.drowcoder.tools.tests.test_todo --module todo_refactor
 python -m src.drowcoder.tools.tests.test_write --module write_refactor
 python -m src.drowcoder.tools.tests.test_search --module search_refactor
 python -m src.drowcoder.tools.tests.test_search_and_replace --module search_and_replace_refactor
-python -m src.drowcoder.tools.tests.test_execute --module execute_refactor
 ```
 
 **Features:**
@@ -61,17 +60,16 @@ Run tests using pytest with environment variable to select module:
 ```bash
 # Test original tools
 TEST_LOAD_MODULE=load pytest src/drowcoder/tools/tests/test_load.py -v
-TEST_EXEC_MODULE=execute pytest src/drowcoder/tools/tests/test_execute.py -v
+TEST_BASH_MODULE=bash pytest src/drowcoder/tools/tests/test_bash.py -v
 
 # Test refactored tools
 TEST_LOAD_MODULE=load_refactor pytest src/drowcoder/tools/tests/test_load.py -v
-TEST_EXEC_MODULE=execute_refactor pytest src/drowcoder/tools/tests/test_execute.py -v
 ```
 
 **Environment variable naming:**
 - `TEST_LOAD_MODULE` - for load tool tests
 - `TEST_TODO_MODULE` - for todo tool tests
-- `TEST_EXEC_MODULE` - for execute tool tests
+- `TEST_BASH_MODULE` - for bash tool tests
 - `TEST_SAR_MODULE` - for search_and_replace tool tests
 - `TEST_SEARCH_MODULE` - for search tool tests
 - (write and attempt_completion use `TEST_MODULE`)
@@ -85,7 +83,7 @@ pytest src/drowcoder/tools/tests/ -v --no-cov
 # Run specific tool tests
 pytest src/drowcoder/tools/tests/test_load.py -v
 pytest src/drowcoder/tools/tests/test_write.py -v
-pytest src/drowcoder/tools/tests/test_execute.py -v
+pytest src/drowcoder/tools/tests/test_bash.py -v
 ```
 
 ## Test Coverage
@@ -97,7 +95,7 @@ Currently tested tools:
 - ✅ `write` - 48 tests
 - ✅ `search` - 38 tests
 - ✅ `search_and_replace` - 32 tests
-- ✅ `execute` - 29 tests (27 passed, 2 skipped for original version)
+- ✅ `bash` - 29 tests
 
 Total: **~240+ tests**, all passing ✅
 
