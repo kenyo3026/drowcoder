@@ -3,22 +3,29 @@ tools:
     function:
       name: "attempt_completion"
       description: |
-        **[COMPLETION SIGNAL]** Stop the agent iteration loop and mark tasks as complete.
+        **[COMPLETION SIGNAL]** Stop the agent iteration loop when you have finished addressing the user's request.
 
-        This agent operates in continuous iteration mode. Call this tool when:
-        - All user-requested tasks have been completed
-        - Implementation is verified and working correctly
-        - No remaining tasks or unresolved issues to address
+        This agent operates in continuous iteration mode. Call this tool when you have finished addressing the user's request, including:
+        - All user-requested tasks have been completed successfully
+        - User's question has been fully answered with complete information
+        - Determined that the requested task is already done or unnecessary (nothing to do)
+        - Found that there is nothing to review, fix, or change
+        - Cannot proceed further and have informed the user of the situation
+
+        **Key Principles:**
+        - Not all tasks require tool execution. Some requests can be fully addressed without calling any tools (e.g., answering from existing context, providing explanations). If the user's request is satisfied, call this tool regardless of whether you used tools.
+        - If you have given the user a complete response to their request—whether through action or information—and there is nothing more to do, you MUST call this tool immediately.
+        - **CRITICAL REMINDER:** After you provide ANY text response to the user (including greetings, simple answers, information, or any other response), if you have addressed their request and there is nothing more to do, you MUST call this tool in the SAME response. This applies to ALL types of responses - greetings, questions, tasks, etc. Do NOT output multiple empty assistant messages. Do NOT wait for user confirmation. Call this tool immediately after your response.
 
         **IMPORTANT:** The agent will continue iterating indefinitely until this tool is called (up to max_iterations).
-        Simply providing a text summary is NOT sufficient to stop - you must call this tool explicitly.
+        Simply providing a text summary is NOT sufficient to stop - you must call this tool explicitly after giving your response.
 
         Required parameter:
-        - result: A brief summary of what was accomplished and why the task is considered complete
+        - result: A brief summary of what was accomplished, found, or determined
       parameters:
         type: "object"
         properties:
           result:
             type: "string"
-            description: "A brief description of what was accomplished and why the task is considered complete."
+            description: "A brief description of what was accomplished, found, or determined."
         required: ["result"]
