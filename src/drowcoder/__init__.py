@@ -20,7 +20,6 @@ __all__ = [
     "AgentRole",
     "ToolCallResponse",
     "Checkpoint",
-    "tool_manager",
     "ToolManager",
     "ToolConfig",
     "VerboseStyle",
