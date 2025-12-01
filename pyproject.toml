@@ -31,6 +31,7 @@ classifiers = [
 dependencies = [
     "litellm>=1.0.0",
     "pyyaml>=6.0",
+    "rich>=13.0.0",
     "config-morpher @ git+https://github.com/kenyo3026/configmorpher.git",
     "path-tree-graph @ git+https://github.com/kenyo3026/path-tree-graph.git",
 ]
