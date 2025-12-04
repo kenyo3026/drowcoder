@@ -9,7 +9,7 @@ import litellm
 
 from .checkpoint import Checkpoint
 from .prompts import *
-from .tools import ToolManager
+from .tools import ToolRegistry
 from .verbose import *
 from .utils.logger import OutputCapture
 from .utils.unique_id import generate_unique_id
@@ -66,16 +66,16 @@ class DrowAgent:
             self.checkpoint = Checkpoint(self.checkpoint)
 
         # Apply config tools if provided
-        tool_manager = ToolManager(
+        tool_registry = ToolRegistry(
             logger=self.logger,
             checkpoint=self.checkpoint.checkpoint_root,
         )
         if tools:
-            tool_manager.apply_config_tools(tools)
+            tool_registry.apply_config_tools(tools)
 
-        # Get tools from tool manager
-        self.tools = tool_manager.get_tool_descs()
-        self.tool_funcs = tool_manager.get_tool_funcs()
+        # Get tools from tool registry
+        self.tools = tool_registry.get_tool_descs()
+        self.tool_funcs = tool_registry.get_tool_funcs()
         self.tool_call_group_ids = []
         self.keep_last_k_tool_call_contexts = keep_last_k_tool_call_contexts
 

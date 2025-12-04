@@ -11,7 +11,7 @@ __email__ = "kenyo3026@gmail.com"
 
 from .agent import DrowAgent, AgentRole, ToolCallResponse
 from .checkpoint import Checkpoint
-from .tools import ToolManager, ToolConfig
+from .tools import ToolRegistry, ToolConfig
 from .verbose import VerboseStyle, VerboserFactory
 from .prompts import SystemPromptInstruction
 
@@ -20,7 +20,7 @@ __all__ = [
     "AgentRole",
     "ToolCallResponse",
     "Checkpoint",
-    "ToolManager",
+    "ToolRegistry",
     "ToolConfig",
     "VerboseStyle",
     "VerboserFactory",

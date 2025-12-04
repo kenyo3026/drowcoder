@@ -33,9 +33,9 @@ class ToolConfig:
             function=func
         )
 
-class ToolManager:
+class ToolRegistry:
     """
-    Tool manager - handles loading, managing and configuring tools
+    Tool registry - handles loading, configuring and providing tools
 
     Architecture:
         Supports two types of tools:
@@ -53,7 +53,7 @@ class ToolManager:
            - Suitable for stateless operations
            - Can be used directly without instantiation
 
-        The ToolManager automatically detects and handles both types transparently.
+        The ToolRegistry automatically detects and handles both types transparently.
         BaseTool subclasses are instantiated with dependencies and their execute()
         method is extracted as the callable. Plain functions are used directly.
     """
