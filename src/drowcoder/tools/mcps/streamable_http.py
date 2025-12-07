@@ -6,7 +6,7 @@ from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
 from pathlib import Path
 
-from .base import MCPBaseClient
+from base import MCPBaseClient
 
 
 @dataclass
