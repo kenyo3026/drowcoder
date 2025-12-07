@@ -3,7 +3,7 @@ import pathlib
 import yaml
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Dict, Optional, Union, Any
+from typing import Any, Dict, List, Optional, Union
 
 from streamable_http import MCPStreamableHTTPClient
 
@@ -88,6 +88,7 @@ class MCPRegister:
     name           : str
     config         : Dict[str, Any]
     client         : Optional[MCPStreamableHTTPClient] = None
+    tool_descs     : Optional[List[dict]] = None
     transport_type : Optional[str] = None
 
     def __post_init__(self):
@@ -107,6 +108,7 @@ class MCPRegister:
         elif has_url:
             self.transport_type = MCPTransportType.STREAMABLE_HTTP
             self.client = MCPStreamableHTTPClient(**self.config)
+            self.tool_descs = self.client.tool_descs
             # TODO: handle client registration status (success or failed)
         elif has_command:
             self.transport_type = MCPTransportType.STDIO

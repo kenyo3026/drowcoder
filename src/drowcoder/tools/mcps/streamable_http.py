@@ -1,12 +1,16 @@
 import logging
+import asyncio
 from dataclasses import dataclass, field, asdict
 from functools import wraps
-from typing import Dict, Callable, Optional, Union
-from mcp import ClientSession
-from mcp.client.streamable_http import streamablehttp_client
+from typing import Dict, Callable, Optional, Union, Any, List
 from pathlib import Path
 
+import mcp
+from mcp import ClientSession
+from mcp.client.streamable_http import streamablehttp_client
+
 from base import MCPBaseClient
+from utils import OpenAICompatibleDesc
 
 
 @dataclass
@@ -14,17 +18,17 @@ class MCPStreamableHTTPClientConfig:
     url: str
     headers: Optional[Dict[str, str]] = field(default_factory=dict)
 
-
 class MCPStreamableHTTPClient(MCPBaseClient):
     """Base class for MCP Client implementations"""
 
     def __init__(
         self,
-        url: str = None,
+        url: str,
         headers: Optional[Dict[str, str]] = None,
         logger: Optional[logging.Logger] = None,
         callback: Optional[Callable] = None,
         checkpoint: Optional[Union[str, Path]] = None,
+        auto_load: bool = True,
         **kwargs,
     ):
         # Initialize parent class (logger, callback, checkpoint)
@@ -36,8 +40,17 @@ class MCPStreamableHTTPClient(MCPBaseClient):
         # Initialize Streamable HTTP specific config
         self.config = MCPStreamableHTTPClientConfig(
             url=url,
-            headers=headers,
+            headers=headers or {},
         )
+
+        # Load tool descriptions synchronously on init
+        if auto_load:
+            loop = asyncio.get_event_loop()
+            self.tool_descs = loop.run_until_complete(
+                self.list_tools(dump_to_openai_desc=True)
+            )
+        else:
+            self.tool_descs: Optional[List[Dict[str, Any]]] = None
 
     def is_connected(self) -> bool:
         """Check if the client is connected to the MCP server"""
@@ -79,12 +92,18 @@ class MCPStreamableHTTPClient(MCPBaseClient):
 
         return wrapper
 
-    async def list_tools(self):
+    async def list_tools(self, dump_to_openai_desc: bool = False):
         """List all available tools from the MCP server"""
         async with streamablehttp_client(**asdict(self.config)) as (read, write, _):
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 tools_response = await session.list_tools()
+
+                if dump_to_openai_desc:
+                    return [
+                        asdict(OpenAICompatibleDesc.from_mcp_type_tool(tool))
+                        for tool in tools_response.tools
+                    ]
                 return tools_response.tools
 
     async def call_tool(self, tool_name: str, arguments: Dict):
