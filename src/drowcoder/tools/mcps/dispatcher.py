@@ -84,7 +84,7 @@ class MCPTransportType:
     INVALID         : str = 'invalid'
 
 @dataclass
-class MCPRegister:
+class MCPInstance:
     name           : str
     config         : Dict[str, Any]
     client         : Optional[MCPStreamableHTTPClient] = None
@@ -136,7 +136,7 @@ class MCPDispatcher(MCPDispatcherSourceLoader):
 
         # Use deepcopy to ensure default_mcps and active_mcps are independent
         mcps = {
-            server_name: MCPRegister(name=server_name, config=config)
+            server_name: MCPInstance(name=server_name, config=config)
             for server_name, config in mcps.items()
         }
         self.default_mcps = deepcopy(mcps)
@@ -159,7 +159,7 @@ class MCPDispatcher(MCPDispatcherSourceLoader):
                 if server_name in self.mcps:
                     self.mcps[server_name].update_client(config)
                 else:
-                    self.mcps[server_name] = MCPRegister(name=server_name, config=config)
+                    self.mcps[server_name] = MCPInstance(name=server_name, config=config)
             except:
                 # TODO: emit warning instead of raising error once logging is supported in upcoming version
                 raise

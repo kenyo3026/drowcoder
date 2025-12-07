@@ -52,7 +52,7 @@ mcpServers:
 - **MCPDispatcher**: Manages MCP server registry and routing
 - **MCPBaseClient**: Abstract base class for transport implementations
 - **MCPStreamableHTTPClient**: HTTP-based client implementation
-- **MCPRegister**: Represents a registered MCP server instance
+- **MCPInstance**: Represents a registered MCP server instance
 
 ## Future Enhancements
 
