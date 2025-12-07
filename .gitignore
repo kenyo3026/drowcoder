@@ -37,6 +37,9 @@ src/drowcoder/tools/tests/reports/*
 test_*.py
 !src/drowcoder/tools/tests/test_*.py
 
+# *.json
+*.json
+
 # TODO (root directory only)
 /TODO.md
 
