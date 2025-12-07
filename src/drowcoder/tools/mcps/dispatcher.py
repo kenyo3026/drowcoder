@@ -10,6 +10,48 @@ from streamable_http import MCPStreamableHTTPClient
 
 DEFAULT_SOURCE_FILE = pathlib.Path(__file__).resolve().parent / 'mcps.json'
 
+@dataclass(frozen=True)
+class MCPTransportType:
+    STREAMABLE_HTTP : str = 'streamable_http'
+    STDIO           : str = 'stdio'
+    INVALID         : str = 'invalid'
+
+@dataclass
+class MCPInstance:
+    name           : str
+    config         : Dict[str, Any]
+    client         : Optional[MCPStreamableHTTPClient] = None
+    tool_descs     : Optional[List[dict]] = None
+    transport_type : Optional[str] = None
+
+    def __post_init__(self):
+        if self.client is None: self.update_client()
+
+    def update_client(self, config: Optional[Dict[str, Any]] = None):
+
+        if config:
+            self.config = config
+
+        has_url = 'url' in self.config
+        has_command = 'command' in self.config
+
+        if has_url and has_command:
+            # TODO: emit warning instead of raising error once logging is supported in upcoming version
+            raise ValueError(f"Server '{self.name}' has both 'url' and 'command' fields, skip to init '{self.name}' client")
+        elif has_url:
+            self.transport_type = MCPTransportType.STREAMABLE_HTTP
+            self.client = MCPStreamableHTTPClient(**self.config)
+            self.tool_descs = self.client.tool_descs
+            # TODO: handle client registration status (success or failed)
+        elif has_command:
+            self.transport_type = MCPTransportType.STDIO
+            # TODO: support stdio client in upcoming version
+            pass
+        else:
+            self.transport_type = MCPTransportType.INVALID
+            # TODO: handle invalid mcp config in upcoming version
+            pass
+
 class MCPDispatcherSourceLoader:
 
     def load(self, source_file: Union[None, str, pathlib.Path] = None) -> Dict[str, Any]:
@@ -76,49 +118,6 @@ class MCPDispatcherSourceLoader:
         with open(source_file, 'r', encoding='utf-8') as f:
             source = json.load(f) or {}
             return source.get('mcpServers', {})
-
-@dataclass(frozen=True)
-class MCPTransportType:
-    STREAMABLE_HTTP : str = 'streamable_http'
-    STDIO           : str = 'stdio'
-    INVALID         : str = 'invalid'
-
-@dataclass
-class MCPInstance:
-    name           : str
-    config         : Dict[str, Any]
-    client         : Optional[MCPStreamableHTTPClient] = None
-    tool_descs     : Optional[List[dict]] = None
-    transport_type : Optional[str] = None
-
-    def __post_init__(self):
-        if self.client is None: self.update_client()
-
-    def update_client(self, config: Optional[Dict[str, Any]] = None):
-
-        if config:
-            self.config = config
-
-        has_url = 'url' in self.config
-        has_command = 'command' in self.config
-
-        if has_url and has_command:
-            # TODO: emit warning instead of raising error once logging is supported in upcoming version
-            raise ValueError(f"Server '{self.name}' has both 'url' and 'command' fields, skip to init '{self.name}' client")
-        elif has_url:
-            self.transport_type = MCPTransportType.STREAMABLE_HTTP
-            self.client = MCPStreamableHTTPClient(**self.config)
-            self.tool_descs = self.client.tool_descs
-            # TODO: handle client registration status (success or failed)
-        elif has_command:
-            self.transport_type = MCPTransportType.STDIO
-            # TODO: support stdio client in upcoming version
-            pass
-        else:
-            self.transport_type = MCPTransportType.INVALID
-            # TODO: handle invalid mcp config in upcoming version
-            pass
-
 
 class MCPDispatcher(MCPDispatcherSourceLoader):
 
