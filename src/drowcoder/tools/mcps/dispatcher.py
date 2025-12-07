@@ -54,6 +54,8 @@ class MCPInstance:
 
 class MCPDispatcherSourceLoader:
 
+    tag = 'mcpServers'
+
     def load(self, source_file: Union[None, str, pathlib.Path] = None) -> Dict[str, Any]:
         """
         Load configuration from YAML or JSON file.
@@ -103,7 +105,7 @@ class MCPDispatcherSourceLoader:
         """
         with open(source_file, 'r', encoding='utf-8') as f:
             source = yaml.safe_load(f) or {}
-            return source.get('mcpServers', {})
+            return source.get(self.tag, {})
 
     def load_from_json(self, source_file: pathlib.Path) -> Dict[str, Any]:
         """
@@ -117,7 +119,7 @@ class MCPDispatcherSourceLoader:
         """
         with open(source_file, 'r', encoding='utf-8') as f:
             source = json.load(f) or {}
-            return source.get('mcpServers', {})
+            return source.get(self.tag, {})
 
 class MCPDispatcher(MCPDispatcherSourceLoader):
 
