@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional, Union
 from streamable_http import MCPStreamableHTTPClient
 
 
-DEFAULT_SOURCE_FILE = pathlib.Path(__file__).resolve().parent / 'mcps.json'
+DEFAULT_MCP_FILE = pathlib.Path(__file__).resolve().parent / 'mcps.json'
 
 @dataclass(frozen=True)
 class MCPTransportType:
@@ -129,7 +129,7 @@ class MCPDispatcher(MCPDispatcherSourceLoader):
             source_file: Path to configuration file. Defaults to './mcps.json' if None.
         """
         if not source_file:
-            source_file = DEFAULT_SOURCE_FILE
+            source_file = DEFAULT_MCP_FILE
 
         mcps = self.load(source_file)
 
