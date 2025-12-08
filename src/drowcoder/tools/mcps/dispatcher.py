@@ -130,37 +130,35 @@ class MCPDispatcher(MCPDispatcherSourceLoader):
         Args:
             source_file: Path to configuration file. Defaults to './mcps.json' if None.
         """
-        if not source_file:
-            source_file = DEFAULT_MCP_FILE
+        self.source_file = source_file or DEFAULT_MCP_FILE
+        self.default_mcps, self.mcps = {}, {}
 
-        mcps = self.load(source_file)
+        self.apply_mcps()
+        self.default_mcps = deepcopy(self.mcps)
 
-        # Use deepcopy to ensure default_mcps and active_mcps are independent
-        mcps = {
-            server_name: MCPInstance(name=server_name, config=config)
-            for server_name, config in mcps.items()
-        }
-        self.default_mcps = deepcopy(mcps)
-        self.mcps = deepcopy(mcps)
-
-    def apply_mcps(self, source_file: Union[None, str, pathlib.Path] = None) -> None:
+    def apply_mcps(self, source_file: Union[None, str, pathlib.Path] = None) -> Dict[str, MCPInstance]:
         """
-        Apply additional MCP configuration from file, merging with existing mcps.
+        Load and apply MCP instances from configuration file.
+
+        If a server already exists, updates its configuration and client.
+        If a server doesn't exist, creates a new MCPInstance.
 
         Args:
-            source_file: Path to configuration file. If None, does nothing.
+            source_file: Path to configuration file. If None, uses self.source_file.
+
+        Returns:
+            Dictionary mapping server names to MCPInstance objects.
         """
-        if not source_file:
-            return
+        source_file = source_file or self.source_file
 
-        mcps = self.load(source_file)
-        for server_name, config in mcps.items():
+        configs = self.load(source_file)
 
-            try:
-                if server_name in self.mcps:
-                    self.mcps[server_name].update_client(config)
-                else:
-                    self.mcps[server_name] = MCPInstance(name=server_name, config=config)
-            except:
-                # TODO: emit warning instead of raising error once logging is supported in upcoming version
-                raise
+        for server_name, config in configs.items():
+            if server_name in self.mcps:
+                # Update existing instance (preserves object reference)
+                self.mcps[server_name].update_client(config)
+            else:
+                # Create new instance
+                self.mcps[server_name] = MCPInstance(name=server_name, config=config)
+
+        return self.mcps
