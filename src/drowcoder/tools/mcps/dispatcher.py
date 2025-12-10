@@ -176,7 +176,8 @@ class MCPDispatcher(MCPDispatcherConfigLoader):
         self.callback = callback
         self.checkpoint = checkpoint
 
-        self.default_mcps, self.mcps = {}, {}
+        self.default_mcps :Dict[str, MCPInstance] = {}
+        self.mcps         :Dict[str, MCPInstance] = {}
 
         # Store initial configuration for later reloading
         self._init_config_paths = config_paths
