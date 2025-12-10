@@ -3,7 +3,7 @@ import json
 import yaml
 import pathlib
 import logging
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Dict, List, Any, Callable, Optional, Union
 from copy import deepcopy
 
@@ -39,7 +39,7 @@ class OpenAICompatibleFuncDesc:
 class ToolInstance:
     """Configuration for a single tool"""
     name: str
-    desc: Dict[str, OpenAICompatibleFuncDesc]  # OpenAI tool description
+    desc: Dict[str, Any]
     func: Callable
     enabled: bool = True
     registered: bool = False
@@ -258,8 +258,28 @@ class ToolDispatcher(ToolDispatcherConfigLoader):
 
         tool_instance = ToolInstance(
             name=func_name,
-            desc=func_desc,
+            desc=asdict(OpenAICompatibleFuncDesc(**func_desc)),
             func=func,
             registered=registered,
         )
         return tool_instance
+
+    def disable_tools(self, tool_names: List[str]):
+        """Disable specific tools by name"""
+        for tool_name in tool_names:
+            if tool_name in self.tools:
+                self.tools[tool_name].enabled = False
+
+    def enable_tools(self, tool_names: List[str]):
+        """Enable specific tools by name"""
+        for tool_name in tool_names:
+            if tool_name in self.tools:
+                self.tools[tool_name].enabled = True
+
+    def get_tool_descs(self) -> List[Dict[str, Any]]:
+        """Get OpenAI tool descriptions of all enabled tools"""
+        return [instance.desc for instance in self.tools.values() if instance.enabled]
+
+    def get_tool_funcs(self) -> Dict[str, Callable]:
+        """Get functions of all enabled tools"""
+        return {name: instance.func for name, instance in self.tools.items() if instance.enabled}
