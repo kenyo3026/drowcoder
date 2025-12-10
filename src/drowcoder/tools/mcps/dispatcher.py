@@ -1,14 +1,16 @@
 import json
+import logging
 import pathlib
 import yaml
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Callable, Optional, Union
 
 from streamable_http import MCPStreamableHTTPClient
 
 
-DEFAULT_MCP_FILE = pathlib.Path(__file__).resolve().parent / 'mcps.json'
+DEFAULT_MCP_CONFIG_ROOT = pathlib.Path(__file__).resolve().parent
+DEFAULT_MCP_CONFIG = 'mcps.json'
 
 @dataclass(frozen=True)
 class MCPTransportType:
@@ -52,7 +54,39 @@ class MCPInstance:
             # TODO: handle invalid mcp config in upcoming version
             pass
 
-class MCPDispatcherSourceLoader:
+@dataclass
+class MCPDispatcherConfig:
+    """Configuration for MCP dispatcher paths and root directory."""
+    paths: Union[None, str, pathlib.Path, List[Union[str, pathlib.Path]]] = None
+    root: Union[None, str, pathlib.Path] = None
+
+    def __post_init__(self):
+        """Normalize configuration paths with optional root directory."""
+        # Handle config paths and root with fallback logic:
+        # 1. Both None: use defaults
+        # 2. Only root given: use default paths with custom root
+        # 3. Only paths given: normalize paths, set root to None
+        if not self.paths and not self.root:
+            # Case 1: Use all defaults
+            self.paths = DEFAULT_MCP_CONFIG
+            self.root = DEFAULT_MCP_CONFIG_ROOT
+        elif not self.paths:
+            # Case 2: Custom root with default paths
+            self.paths = DEFAULT_MCP_CONFIG
+        elif not self.root:
+            # Case 3: Custom paths, no root
+            self.root = None
+
+        # Normalize to list
+        if isinstance(self.paths, (str, pathlib.Path)):
+            self.paths = [self.paths]
+
+        # Apply root to paths
+        if self.root:
+            self.root = pathlib.Path(self.root)
+            self.paths = [self.root / path for path in self.paths]
+
+class MCPDispatcherConfigLoader:
 
     tag = 'mcpServers'
 
@@ -121,22 +155,41 @@ class MCPDispatcherSourceLoader:
             source = json.load(f) or {}
             return source.get(self.tag, {})
 
-class MCPDispatcher(MCPDispatcherSourceLoader):
+class MCPDispatcher(MCPDispatcherConfigLoader):
 
-    def __init__(self, source_file: Union[None, str, pathlib.Path] = None):
+    def __init__(
+        self,
+        config_paths: Union[None, str, pathlib.Path, List[Union[str, pathlib.Path]]] = None,
+        config_root: Union[None, str, pathlib.Path] = None,
+        logger: Optional[logging.Logger] = None,
+        callback: Optional[Callable] = None,
+        checkpoint: Optional[Union[str, pathlib.Path]] = None,
+    ):
         """
         Initialize MCP dispatcher with configuration file.
 
         Args:
-            source_file: Path to configuration file. Defaults to './mcps.json' if None.
+            config_paths: Path(s) to configuration file(s). Defaults to 'mcps.json' if None.
+            config_root: Root directory for resolving config paths. Defaults to module directory if None.
         """
-        self.source_file = source_file or DEFAULT_MCP_FILE
+        self.logger = logger
+        self.callback = callback
+        self.checkpoint = checkpoint
+
         self.default_mcps, self.mcps = {}, {}
 
-        self.apply_mcps()
+        # Store initial configuration for later reloading
+        self._init_config_paths = config_paths
+        self._init_config_root = config_root
+
+        self.apply_mcps(config_paths, config_root=config_root)
         self.default_mcps = deepcopy(self.mcps)
 
-    def apply_mcps(self, source_file: Union[None, str, pathlib.Path] = None) -> Dict[str, MCPInstance]:
+    def apply_mcps(
+        self,
+        config_paths: Union[None, str, pathlib.Path, List[Union[str, pathlib.Path]]] = None,
+        config_root: Union[None, str, pathlib.Path] = None,
+    ) -> Dict[str, MCPInstance]:
         """
         Load and apply MCP instances from configuration file.
 
@@ -144,14 +197,28 @@ class MCPDispatcher(MCPDispatcherSourceLoader):
         If a server doesn't exist, creates a new MCPInstance.
 
         Args:
-            source_file: Path to configuration file. If None, uses self.source_file.
+            config_paths: Path(s) to configuration file(s). If None, uses initial configuration.
+            config_root: Root directory for resolving paths. If None, uses initial root.
 
         Returns:
             Dictionary mapping server names to MCPInstance objects.
-        """
-        source_file = source_file or self.source_file
 
-        configs = self.load(source_file)
+        Behavior:
+            - apply_mcps(): Reload from initial configuration
+            - apply_mcps("new.json"): Load from new configuration
+            - apply_mcps("new.json", "/new/root"): Load with new root
+        """
+        # If no arguments provided, use initial configuration
+        if config_paths is None and config_root is None:
+            config_paths = self._init_config_paths
+            config_root = self._init_config_root
+
+        mcp_config = MCPDispatcherConfig(paths=config_paths, root=config_root)
+
+        configs = {}
+        for config_path in mcp_config.paths:
+            config = self.load(config_path)
+            configs.update(config)
 
         for server_name, config in configs.items():
             if server_name in self.mcps:
