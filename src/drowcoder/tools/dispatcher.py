@@ -161,7 +161,8 @@ class ToolDispatcher(ToolDispatcherConfigLoader):
 
         self.current_module = sys.modules[__name__]
 
-        self.default_tools, self.tools = {}, {}
+        self.default_tools :Dict[str, ToolInstance] = {}
+        self.tools         :Dict[str, ToolInstance] = {}
 
         # Store initial configuration for later reloading
         self._init_config_paths = config_paths
