@@ -9,7 +9,7 @@ import litellm
 
 from .checkpoint import Checkpoint
 from .prompts import *
-from .tools import ToolRegistry
+from .tools.dispatcher import ToolDispatcher
 from .verbose import *
 from .utils.logger import OutputCapture
 from .utils.unique_id import generate_unique_id
@@ -49,6 +49,7 @@ class DrowAgent:
         self,
         workspace: str = None,
         tools: Optional[List[Dict[str, Any]]] = None,
+        tool_root: Optional[str] = None,
         keep_last_k_tool_call_contexts:int = 5,
         logger: Optional[logging.Logger] = None,
         checkpoint: Union[str, Checkpoint] = None,
@@ -57,6 +58,24 @@ class DrowAgent:
         max_iterations_without_call_tools: int = 3,
         **completion_kwargs
     ):
+        """
+        Initialize DrowAgent with workspace, tools, and configuration.
+
+        Args:
+            workspace: Workspace directory path
+            tools: Optional list of tool configurations in OpenAI format.
+                If provided, these tools will override/extend default builtin tools.
+                Format: [{"type": "function", "function": {...}}, ...]
+            tool_root: Optional root directory for resolving tool configuration file paths.
+                Used when tools are provided as file paths instead of direct configs.
+            keep_last_k_tool_call_contexts: Number of tool call contexts to keep
+            logger: Optional logger instance
+            checkpoint: Checkpoint directory or Checkpoint instance
+            verbose_style: Verbose output style
+            max_iterations: Maximum number of iterations
+            max_iterations_without_call_tools: Max iterations without tool calls
+            **completion_kwargs: Additional arguments for completion API
+        """
         self.logger = logger or logging.getLogger(__name__)
 
         self.setup_workspace(workspace)
@@ -65,17 +84,26 @@ class DrowAgent:
         if isinstance(self.checkpoint, str) or self.checkpoint is None:
             self.checkpoint = Checkpoint(self.checkpoint)
 
-        # Apply config tools if provided
-        tool_registry = ToolRegistry(
+        # Initialize tool dispatcher with default builtin tools
+        # When configs=None, ToolDispatcher automatically loads DEFAULT_TOOL_CONFIGS
+        # This ensures default tools are always available
+        tool_dispatcher = ToolDispatcher(
             logger=self.logger,
             checkpoint=self.checkpoint.checkpoint_root,
         )
-        if tools:
-            tool_registry.apply_config_tools(tools)
 
-        # Get tools from tool registry
-        self.tools = tool_registry.get_tool_descs()
-        self.tool_funcs = tool_registry.get_tool_funcs()
+        # Apply user-provided tools to override/extend default tools
+        # If tools is provided, it will update existing tools with same name
+        # or add new tools to the dispatcher
+        if tools:
+            tool_dispatcher.apply_tools(
+                configs=tools,
+                config_root=tool_root,
+            )
+
+        # Extract tool descriptions and functions for agent use
+        self.tools = tool_dispatcher.get_tool_descs()
+        self.tool_funcs = tool_dispatcher.get_tool_funcs()
         self.tool_call_group_ids = []
         self.keep_last_k_tool_call_contexts = keep_last_k_tool_call_contexts
 

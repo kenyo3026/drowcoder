@@ -37,16 +37,26 @@ class OpenAICompatibleFuncDesc:
 
 @dataclass
 class ToolInstance:
-    """Configuration for a single tool"""
+    """
+    Configuration for a single tool instance.
+
+    Attributes:
+        name: Tool name (function name)
+        desc: Complete tool description dictionary in OpenAI format.
+            Contains 'type', 'function' keys with validated function description.
+        tool: Callable function for executing the tool
+        enabled: Whether the tool is enabled
+        registered: Whether the tool was successfully registered
+    """
     name: str
     desc: Dict[str, Any]
-    func: Callable
+    tool: Callable
     enabled: bool = True
     registered: bool = False
 
 @dataclass
 class ToolDispatcherConfig:
-    """Configuration for MCP dispatcher paths and root directory."""
+    """Configuration for tool dispatcher paths and root directory."""
     paths: Union[None, str, pathlib.Path, List[Union[str, pathlib.Path]]] = None
     root: Union[None, str, pathlib.Path] = None
 
@@ -82,13 +92,14 @@ class ToolDispatcherConfigLoader:
 
     def load(self, source_file: Union[None, str, pathlib.Path] = None) -> List[Any]:
         """
-        Load configuration from YAML or JSON file.
+        Load tool configurations from YAML or JSON file.
 
         Args:
             source_file: Path to configuration file (.yaml, .yml, or .json)
 
         Returns:
-            Dictionary containing loaded configuration, or empty dict if source_file is None
+            List of tool configurations from the 'tools' key in the file.
+            Returns empty list if source_file is None or 'tools' key not found.
 
         Raises:
             ValueError: If file extension is not supported
@@ -97,7 +108,7 @@ class ToolDispatcherConfigLoader:
             json.JSONDecodeError: If JSON file is invalid
         """
         if not source_file:
-            return {}
+            return []
 
         if isinstance(source_file, str):
             source_file = pathlib.Path(source_file).resolve()
@@ -119,13 +130,13 @@ class ToolDispatcherConfigLoader:
 
     def load_from_yaml(self, source_file: pathlib.Path) -> List[Any]:
         """
-        Load configuration from YAML file.
+        Load tool configurations from YAML file.
 
         Args:
             source_file: Path to YAML file
 
         Returns:
-            Dictionary containing toolServers configuration, or empty dict if not found
+            List of tool configurations from the 'tools' key, or empty list if not found
         """
         with open(source_file, 'r', encoding='utf-8') as f:
             source = yaml.safe_load(f) or {}
@@ -133,28 +144,55 @@ class ToolDispatcherConfigLoader:
 
     def load_from_json(self, source_file: pathlib.Path) -> List[Any]:
         """
-        Load configuration from JSON file.
+        Load tool configurations from JSON file.
 
         Args:
             source_file: Path to JSON file
 
         Returns:
-            Dictionary containing toolServers configuration, or empty dict if not found
+            List of tool configurations from the 'tools' key, or empty list if not found
         """
         with open(source_file, 'r', encoding='utf-8') as f:
             source = json.load(f) or {}
             return source.get(self.tag, [])
 
 class ToolDispatcher(ToolDispatcherConfigLoader):
+    """
+    Tool dispatcher for loading and managing tool instances.
+
+    Supports loading tools from configuration files (YAML/JSON) or direct tool
+    configurations. Automatically loads default builtin tools when initialized
+    without configs parameter.
+    """
 
     def __init__(
         self,
-        config_paths: Union[None, str, pathlib.Path, List[Union[str, pathlib.Path]]] = None,
+        configs: Union[None, str, pathlib.Path, List[Union[str, pathlib.Path]], List[Dict[str, Any]]] = None,
         config_root: Union[None, str, pathlib.Path] = None,
         logger: Optional[logging.Logger] = None,
         callback: Optional[Callable] = None,
         checkpoint: Optional[Union[str, pathlib.Path]] = None,
     ):
+        """
+        Initialize tool dispatcher with configuration.
+
+        Args:
+            configs: Tool configuration source. Can be:
+                - None: Load default builtin tools (DEFAULT_TOOL_CONFIGS)
+                - str/Path: Single configuration file path
+                - List[str/Path]: Multiple configuration file paths
+                - List[Dict]: Direct tool configurations in OpenAI format
+            config_root: Root directory for resolving relative config paths.
+                If None, uses DEFAULT_TOOL_CONFIG_ROOT.
+            logger: Optional logger instance
+            callback: Optional callback function
+            checkpoint: Optional checkpoint directory
+
+        Behavior:
+            - If configs=None: Automatically loads all default builtin tools
+            - If configs=List[Dict]: Directly applies tool configurations
+            - If configs=file path(s): Loads tools from configuration files
+        """
         self.logger = logger
         self.callback = callback
         self.checkpoint = checkpoint
@@ -165,50 +203,66 @@ class ToolDispatcher(ToolDispatcherConfigLoader):
         self.tools         :Dict[str, ToolInstance] = {}
 
         # Store initial configuration for later reloading
-        self._init_config_paths = config_paths
+        self._init_configs = configs
         self._init_config_root = config_root
 
-        self.apply_tools(config_paths, config_root=config_root)
+        self.apply_tools(configs, config_root=config_root)
         self.default_tools = deepcopy(self.tools)
 
     def apply_tools(
         self,
-        config_paths: Union[None, str, pathlib.Path, List[Union[str, pathlib.Path]]] = None,
+        configs: Union[None, str, pathlib.Path, List[Union[str, pathlib.Path]], List[Dict[str, Any]]] = None,
         config_root: Union[None, str, pathlib.Path] = None,
     ) -> Dict[str, ToolInstance]:
         """
-        Load and apply tool instances from configuration file(s).
+        Load and apply tool instances from configuration source.
 
-        If a tool already exists, it will be updated.
+        If a tool already exists (same name), it will be updated.
         If a tool doesn't exist, creates a new ToolInstance.
 
         Args:
-            config_paths: Path(s) to configuration file(s). If None, uses initial configuration.
-            config_root: Root directory for resolving paths. If None, uses initial root.
+            configs: Tool configuration source. Can be:
+                - None: Uses initial configuration
+                - str/Path: Single configuration file path
+                - List[str/Path]: Multiple configuration file paths
+                - List[Dict]: Direct tool configurations in OpenAI format
+                    Format: [{"type": "function", "function": {...}}, ...]
+            config_root: Root directory for resolving relative paths.
+                If None, uses initial root.
 
         Returns:
             Dictionary mapping tool names to ToolInstance objects.
 
         Behavior:
             - apply_tools(): Reload from initial configuration
-            - apply_tools("new.yaml"): Load from new configuration
-            - apply_tools("new.yaml", "/new/root"): Load with new root
+            - apply_tools("new.yaml"): Load from new configuration file
+            - apply_tools("new.yaml", "/new/root"): Load with custom root
+            - apply_tools([{...}, {...}]): Apply direct tool configurations
         """
         # If no arguments provided, use initial configuration
-        if config_paths is None and config_root is None:
-            config_paths = self._init_config_paths
+        if configs is None and config_root is None:
+            configs = self._init_configs
             config_root = self._init_config_root
 
-        tool_config = ToolDispatcherConfig(paths=config_paths, root=config_root)
-
-        for config_path in tool_config.paths:
-            tool_configs = self.load(config_path)  # Returns List[dict]
-
-            # Iterate through tool configurations
-            for config in tool_configs:
+        # Handle List[Dict] case - direct tool configs
+        if isinstance(configs, list) and configs and isinstance(configs[0], dict):
+            # Direct tool configurations (from agent.py tools parameter)
+            for config in configs:
                 tool_instance = self.setup_tool(config)
                 if tool_instance:
                     self.tools[tool_instance.name] = tool_instance
+        else:
+            # Handle file paths case
+            tool_config = ToolDispatcherConfig(paths=configs, root=config_root)
+
+            for config_path in tool_config.paths:
+                tool_configs = self.load(config_path)  # Returns List[dict]
+
+                # Iterate through tool configurations
+                for config in tool_configs:
+                    tool_instance = self.setup_tool(config)
+                    if tool_instance:
+                        self.tools[tool_instance.name] = tool_instance
 
         return self.tools
 
@@ -216,11 +270,20 @@ class ToolDispatcher(ToolDispatcherConfigLoader):
         """
         Setup a single tool instance from configuration.
 
+        Validates and processes tool configuration, instantiates the tool function,
+        and creates a ToolInstance with validated description.
+
         Args:
-            config: Tool configuration dictionary containing 'type' and function details.
+            config: Tool configuration dictionary in OpenAI format.
+                Must contain 'type' key (currently only 'function' supported)
+                and corresponding function description.
 
         Returns:
             ToolInstance if successfully configured, None otherwise.
+
+        Note:
+            The desc field in ToolInstance contains the complete validated config
+            with function description validated through OpenAICompatibleFuncDesc.
         """
         tool_type = config.get('type')
         if tool_type != 'function':
@@ -256,10 +319,13 @@ class ToolDispatcher(ToolDispatcherConfigLoader):
             func = None
             registered = False
 
+        tool_desc = config
+        tool_desc.update(asdict(OpenAICompatibleFuncDesc(**func_desc)))
+
         tool_instance = ToolInstance(
             name=func_name,
-            desc=asdict(OpenAICompatibleFuncDesc(**func_desc)),
-            func=func,
+            desc=tool_desc,
+            tool=func,
             registered=registered,
         )
         return tool_instance
@@ -282,4 +348,4 @@ class ToolDispatcher(ToolDispatcherConfigLoader):
 
     def get_tool_funcs(self) -> Dict[str, Callable]:
         """Get functions of all enabled tools"""
-        return {name: instance.func for name, instance in self.tools.items() if instance.enabled}
+        return {name: instance.tool for name, instance in self.tools.items() if instance.enabled}
