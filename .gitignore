@@ -31,11 +31,11 @@ configs/*
 logs/*
 materials/*
 scripts/
-src/drowcoder/tools/tests/reports/*
+**/tools/reports/*
 
 # test files
 test_*.py
-!src/drowcoder/tools/tests/test_*.py
+!src/drowcoder/tools/tools/tests/test_*.py
 
 # *.json
 *.json
