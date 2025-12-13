@@ -9,7 +9,7 @@ import mcp
 from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
 
-from .base import MCPBaseClient
+from .base import MCPBaseClient, MCPResponse, MCPResponseMetadata
 from .utils import OpenAICompatibleDesc
 
 
@@ -156,13 +156,35 @@ class MCPStreamableHTTPClient(MCPBaseClient):
         return self._run_async(self._list_tools_async(dump_to_openai_desc))
 
     async def _call_tool_async(self, tool_name: str, **arguments):
-        """Internal async implementation for calling a tool"""
-        async with streamablehttp_client(**asdict(self.config)) as (read, write, _):
-            async with ClientSession(read, write) as session:
-                await session.initialize()
-                # MCP session.call_tool expects arguments as a dict, not **kwargs
-                result = await session.call_tool(tool_name, arguments)
-                return result
+        """
+        Call a specific tool with given arguments (asynchronous).
+
+        Args:
+            tool_name: Name of the tool to call
+            **arguments: Arguments to pass to the tool
+
+        Returns:
+            Dumped MCPResponse object (string format by default)
+        """
+        try:
+            async with streamablehttp_client(**asdict(self.config)) as (read, write, _):
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
+                    # MCP session.call_tool expects arguments as a dict, not **kwargs
+                    result = await session.call_tool(tool_name, arguments)
+                    response = MCPResponse.from_call_tool_result(tool_name, result)
+                    return response.dump(filter_empty_fields=True)
+        except Exception as e:
+            # Handle any errors during MCP tool execution
+            self.logger.error(f"Error calling MCP tool '{tool_name}': {str(e)}", exc_info=True)
+            error_response = MCPResponse(
+                tool_name=tool_name,
+                success=False,
+                content=None,
+                error=f"Error calling MCP tool '{tool_name}': {str(e)}",
+                metadata=MCPResponseMetadata(tool_name=tool_name, is_error=True)
+            )
+            return error_response.dump(filter_empty_fields=True)
 
     def call_tool(self, tool_name: str, **arguments):
         """
@@ -173,6 +195,6 @@ class MCPStreamableHTTPClient(MCPBaseClient):
             **arguments: Arguments to pass to the tool
 
         Returns:
-            Tool execution result
+            MCPResponse object with standardized format
         """
         return self._run_async(self._call_tool_async(tool_name, **arguments))
