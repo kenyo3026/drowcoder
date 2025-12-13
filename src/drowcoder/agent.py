@@ -9,7 +9,7 @@ import litellm
 
 from .checkpoint import Checkpoint
 from .prompts import *
-from .tools.dispatcher import ToolDispatcher
+from .tools.dispatcher import Dispatcher
 from .verbose import *
 from .utils.logger import OutputCapture
 from .utils.unique_id import generate_unique_id
@@ -49,7 +49,7 @@ class DrowAgent:
         self,
         workspace: str = None,
         tools: Optional[List[Dict[str, Any]]] = None,
-        tool_root: Optional[str] = None,
+        mcps: Optional[Dict[str, Any]] = None,
         keep_last_k_tool_call_contexts:int = 5,
         logger: Optional[logging.Logger] = None,
         checkpoint: Union[str, Checkpoint] = None,
@@ -66,8 +66,13 @@ class DrowAgent:
             tools: Optional list of tool configurations in OpenAI format.
                 If provided, these tools will override/extend default builtin tools.
                 Format: [{"type": "function", "function": {...}}, ...]
-            tool_root: Optional root directory for resolving tool configuration file paths.
-                Used when tools are provided as file paths instead of direct configs.
+            mcps: Optional dict of MCP (Model Context Protocol) servers configuration.
+                If provided, these MCP servers will be loaded and their tools made available.
+                Supports two formats:
+                1. Normal format:
+                   {"server_name": {"url": "...", "headers": {...}}, ...}
+                2. Cursor format:
+                   {"mcpServers": {"server_name": {"url": "...", "headers": {...}}, ...}}
             keep_last_k_tool_call_contexts: Number of tool call contexts to keep
             logger: Optional logger instance
             checkpoint: Checkpoint directory or Checkpoint instance
@@ -87,7 +92,7 @@ class DrowAgent:
         # Initialize tool dispatcher with default builtin tools
         # When configs=None, ToolDispatcher automatically loads DEFAULT_TOOL_CONFIGS
         # This ensures default tools are always available
-        tool_dispatcher = ToolDispatcher(
+        dispatcher = Dispatcher(
             logger=self.logger,
             checkpoint=self.checkpoint.checkpoint_root,
         )
@@ -96,14 +101,17 @@ class DrowAgent:
         # If tools is provided, it will update existing tools with same name
         # or add new tools to the dispatcher
         if tools:
-            tool_dispatcher.apply_tools(
+            dispatcher.apply_tools(
                 configs=tools,
-                config_root=tool_root,
+            )
+        if mcps:
+            dispatcher.apply_mcps(
+                configs=mcps,
             )
 
         # Extract tool descriptions and functions for agent use
-        self.tools = tool_dispatcher.get_tool_descs()
-        self.tool_funcs = tool_dispatcher.get_tool_funcs()
+        self.tools = dispatcher.expose_descs()
+        self.tool_funcs = dispatcher.expose_funcs()
         self.tool_call_group_ids = []
         self.keep_last_k_tool_call_contexts = keep_last_k_tool_call_contexts
 

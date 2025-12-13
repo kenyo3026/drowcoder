@@ -4,9 +4,10 @@ import pathlib
 import yaml
 from copy import deepcopy
 from dataclasses import dataclass
+from functools import partial
 from typing import Any, Dict, List, Callable, Optional, Union
 
-from streamable_http import MCPStreamableHTTPClient
+from .streamable_http import MCPStreamableHTTPClient
 
 
 DEFAULT_MCP_CONFIG_ROOT = pathlib.Path(__file__).resolve().parent
@@ -23,8 +24,10 @@ class MCPInstance:
     name           : str
     config         : Dict[str, Any]
     client         : Optional[MCPStreamableHTTPClient] = None
-    tool_descs     : Optional[List[dict]] = None
+    descs          : Optional[List[dict]] = None
     transport_type : Optional[str] = None
+    enabled        : bool = True
+    registered     : bool = False
 
     def __post_init__(self):
         if self.client is None: self.update_client()
@@ -43,7 +46,7 @@ class MCPInstance:
         elif has_url:
             self.transport_type = MCPTransportType.STREAMABLE_HTTP
             self.client = MCPStreamableHTTPClient(**self.config)
-            self.tool_descs = self.client.tool_descs
+            self.descs = self.client.tool_descs
             # TODO: handle client registration status (success or failed)
         elif has_command:
             self.transport_type = MCPTransportType.STDIO
@@ -159,7 +162,7 @@ class MCPDispatcher(MCPDispatcherConfigLoader):
 
     def __init__(
         self,
-        config_paths: Union[None, str, pathlib.Path, List[Union[str, pathlib.Path]]] = None,
+        configs: Union[None, str, pathlib.Path, List[Union[str, pathlib.Path]], Dict[str, Any]] = None,
         config_root: Union[None, str, pathlib.Path] = None,
         logger: Optional[logging.Logger] = None,
         callback: Optional[Callable] = None,
@@ -169,10 +172,10 @@ class MCPDispatcher(MCPDispatcherConfigLoader):
         Initialize MCP dispatcher with configuration file.
 
         Args:
-            config_paths: Path(s) to configuration file(s). Defaults to 'mcps.json' if None.
+            configs: Path(s) to configuration file(s). Defaults to 'mcps.json' if None.
             config_root: Root directory for resolving config paths. Defaults to module directory if None.
         """
-        self.logger = logger
+        self.logger = logger or logging.getLogger(__name__)
         self.callback = callback
         self.checkpoint = checkpoint
 
@@ -180,46 +183,60 @@ class MCPDispatcher(MCPDispatcherConfigLoader):
         self.mcps         :Dict[str, MCPInstance] = {}
 
         # Store initial configuration for later reloading
-        self._init_config_paths = config_paths
+        self._init_configs = configs
         self._init_config_root = config_root
 
-        self.apply_mcps(config_paths, config_root=config_root)
+        self.apply_mcps(configs, config_root=config_root)
         self.default_mcps = deepcopy(self.mcps)
 
     def apply_mcps(
         self,
-        config_paths: Union[None, str, pathlib.Path, List[Union[str, pathlib.Path]]] = None,
+        configs: Union[None, str, pathlib.Path, List[Union[str, pathlib.Path]], Dict[str, Any]] = None,
         config_root: Union[None, str, pathlib.Path] = None,
     ) -> Dict[str, MCPInstance]:
         """
-        Load and apply MCP instances from configuration file.
+        Load and apply MCP instances from configuration file or direct config dict.
 
         If a server already exists, updates its configuration and client.
         If a server doesn't exist, creates a new MCPInstance.
 
         Args:
-            config_paths: Path(s) to configuration file(s). If None, uses initial configuration.
-            config_root: Root directory for resolving paths. If None, uses initial root.
+            configs: Configuration source. Can be:
+                - None: Uses initial configuration
+                - str/Path: Single configuration file path
+                - List[str/Path]: Multiple configuration file paths
+                - Dict[str, Any]: Direct MCP servers configuration
+                    Format: {"server_name": {"url": "...", "headers": {...}}, ...}
+                    OR: {"mcpServers": {"server_name": {...}, ...}}
+            config_root: Root directory for resolving relative paths.
+                If None, uses initial root.
 
         Returns:
             Dictionary mapping server names to MCPInstance objects.
 
         Behavior:
             - apply_mcps(): Reload from initial configuration
-            - apply_mcps("new.json"): Load from new configuration
-            - apply_mcps("new.json", "/new/root"): Load with new root
+            - apply_mcps("new.json"): Load from new configuration file
+            - apply_mcps("new.json", "/new/root"): Load with custom root
+            - apply_mcps({"server_name": {...}}): Apply direct configuration dict
         """
         # If no arguments provided, use initial configuration
-        if config_paths is None and config_root is None:
-            config_paths = self._init_config_paths
+        if configs is None and config_root is None:
+            configs = self._init_configs
             config_root = self._init_config_root
 
-        mcp_config = MCPDispatcherConfig(paths=config_paths, root=config_root)
+        # Handle Dict case - direct MCP servers configuration
+        if isinstance(configs, dict):
+            # Extract mcpServers if present, otherwise assume configs is mcpServers dict
+            configs = configs.get(self.tag, configs)
+        else:
+            # Handle file paths case
+            mcp_config = MCPDispatcherConfig(paths=configs, root=config_root)
 
-        configs = {}
-        for config_path in mcp_config.paths:
-            config = self.load(config_path)
-            configs.update(config)
+            configs = {}
+            for config_path in mcp_config.paths:
+                config = self.load(config_path)
+                configs.update(config)
 
         for server_name, config in configs.items():
             if server_name in self.mcps:
@@ -230,3 +247,41 @@ class MCPDispatcher(MCPDispatcherConfigLoader):
                 self.mcps[server_name] = MCPInstance(name=server_name, config=config)
 
         return self.mcps
+
+    def disable_mcps(self, mcp_names: List[str]):
+        """Disable specific MCP servers by name"""
+        for mcp_name in mcp_names:
+            if mcp_name in self.mcps:
+                self.mcps[mcp_name].enabled = False
+
+    def enable_mcps(self, mcp_names: List[str]):
+        """Enable specific MCP servers by name"""
+        for mcp_name in mcp_names:
+            if mcp_name in self.mcps:
+                self.mcps[mcp_name].enabled = True
+
+    def get_mcp_descs(self) -> List[Dict[str, Any]]:
+        """Get OpenAI tool descriptions of all enabled MCP servers"""
+        return [
+            desc
+            for instance in self.mcps.values() if instance.enabled
+            for desc in (instance.descs or [])
+        ]
+
+    def get_mcp_funcs(self) -> Dict[str, Callable]:
+        """Get tool functions from all enabled MCP servers"""
+        return {
+            desc['function']['name']: partial(
+                self.mcps[name].client.call_tool, tool_name=desc['function']['name']
+            )
+            for name, instance in self.mcps.items() if instance.enabled
+            for desc in (instance.descs or [])
+        }
+
+    def get_mcp_clients(self) -> Dict[str, Callable]:
+        """Get functions of all enabled tools"""
+        # return {name: instance.tool for name, instance in self.tools.items() if instance.enabled}
+        return {
+            name:instance.client for name, instance in self.mcps.items()
+            if instance.enabled
+        }

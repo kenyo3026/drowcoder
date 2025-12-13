@@ -197,7 +197,7 @@ class ToolDispatcher(ToolDispatcherConfigLoader):
             - If configs=List[Dict]: Directly applies tool configurations
             - If configs=file path(s): Loads tools from configuration files
         """
-        self.logger = logger
+        self.logger = logger or logging.getLogger(__name__)
         self.callback = callback
         self.checkpoint = checkpoint
 
