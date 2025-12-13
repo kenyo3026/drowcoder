@@ -41,16 +41,17 @@ class ToolInstance:
     Configuration for a single tool instance.
 
     Attributes:
-        name: Tool name (function name)
-        desc: Complete tool description dictionary in OpenAI format.
-            Contains 'type', 'function' keys with validated function description.
-        tool: Callable function for executing the tool
+        name: Tool identifier/name
+        desc: Complete tool description dictionary in OpenAI format
+        tool: Tool executor (Callable for 'function' type, may differ for other types)
+        type: Tool type ('function', 'websearch', etc.)
         enabled: Whether the tool is enabled
         registered: Whether the tool was successfully registered
     """
     name: str
     desc: Dict[str, Any]
     tool: Callable
+    type: str
     enabled: bool = True
     registered: bool = False
 
@@ -163,6 +164,9 @@ class ToolDispatcher(ToolDispatcherConfigLoader):
     Supports loading tools from configuration files (YAML/JSON) or direct tool
     configurations. Automatically loads default builtin tools when initialized
     without configs parameter.
+
+    Currently supports 'function' type tools. Designed to support additional
+    tool types (e.g., 'websearch') in the future.
     """
 
     def __init__(
@@ -270,64 +274,70 @@ class ToolDispatcher(ToolDispatcherConfigLoader):
         """
         Setup a single tool instance from configuration.
 
-        Validates and processes tool configuration, instantiates the tool function,
+        Validates and processes tool configuration, instantiates the tool executor,
         and creates a ToolInstance with validated description.
 
         Args:
             config: Tool configuration dictionary in OpenAI format.
-                Must contain 'type' key (currently only 'function' supported)
-                and corresponding function description.
+                Must contain 'type' key (currently only 'function' supported).
+                Future support for 'websearch' and other types planned.
 
         Returns:
             ToolInstance if successfully configured, None otherwise.
 
+        Raises:
+            ValueError: If tool type is not supported.
+
         Note:
-            The desc field in ToolInstance contains the complete validated config
-            with function description validated through OpenAICompatibleFuncDesc.
+            The desc field contains the complete validated config. For 'function'
+            type, function description is validated through OpenAICompatibleFuncDesc.
         """
         tool_type = config.get('type')
-        if tool_type != 'function':
-            # TODO: Short-term handling - only support 'function' type currently
-            if self.logger:
-                self.logger.warning(
-                    f"Unsupported tool type '{tool_type}'. Only 'function' type is supported currently."
-                )
-            return None
 
-        func_desc = config[tool_type]
-        func_name = func_desc['name']
+        if tool_type == 'function':
 
-        if func_name in self.current_module.__dict__:
-            func = self.current_module.__dict__[func_name]
+            func_desc = config[tool_type]
+            func_name = func_desc['name']
 
-            if isinstance(func, type) and issubclass(func, BaseTool):
-                func = func(
-                    logger=self.logger,
-                    callback=self.callback,
-                    checkpoint=self.checkpoint,
-                )
-                func = func.execute
-                registered = True
+            if func_name in self.current_module.__dict__:
+                func = self.current_module.__dict__[func_name]
+
+                if isinstance(func, type) and issubclass(func, BaseTool):
+                    func = func(
+                        logger=self.logger,
+                        callback=self.callback,
+                        checkpoint=self.checkpoint,
+                    )
+                    func = func.execute
+                    registered = True
+                else:
+                    if self.logger:
+                        self.logger.warning(f"Function {func_name} is not a BaseTool subclass")
+                    func = None
+                    registered = False
             else:
                 if self.logger:
-                    self.logger.warning(f"Function {func_name} is not a BaseTool subclass")
+                    self.logger.warning(f"Function {func_name} not found in module")
                 func = None
                 registered = False
+
+            tool_desc = config
+            tool_desc.update(asdict(OpenAICompatibleFuncDesc(**func_desc)))
+
+            tool_instance = ToolInstance(
+                name=func_name,
+                desc=tool_desc,
+                tool=func,
+                type=tool_type,
+                registered=registered,
+            )
         else:
+            # TODO: Short-term handling - only support 'function' type currently
+            msg = f"Unsupported tool type '{tool_type}'. Only 'function' type is supported currently."
             if self.logger:
-                self.logger.warning(f"Function {func_name} not found in module")
-            func = None
-            registered = False
+                self.logger.error(msg)
+            raise ValueError(msg)
 
-        tool_desc = config
-        tool_desc.update(asdict(OpenAICompatibleFuncDesc(**func_desc)))
-
-        tool_instance = ToolInstance(
-            name=func_name,
-            desc=tool_desc,
-            tool=func,
-            registered=registered,
-        )
         return tool_instance
 
     def disable_tools(self, tool_names: List[str]):
