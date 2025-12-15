@@ -28,26 +28,62 @@ class MCPStreamableHTTPClient(MCPBaseClient):
         logger: Optional[logging.Logger] = None,
         callback: Optional[Callable] = None,
         checkpoint: Optional[Union[str, Path]] = None,
-        auto_load: bool = True,
+        auto_initialize: bool = True,
         **kwargs,
     ):
-        # Initialize parent class (logger, callback, checkpoint)
-        super().__init__(
-            logger=logger,
-            callback=callback,
-            checkpoint=checkpoint,
-        )
-        # Initialize Streamable HTTP specific config
+        """
+        Initialize MCP Streamable HTTP Client.
+
+        Args:
+            url: MCP server URL
+            headers: Optional HTTP headers
+            logger: Optional logger instance
+            callback: Optional callback function
+            checkpoint: Optional checkpoint root
+            auto_initialize: Whether to automatically call initialize() (default: True)
+                           When True, will also load tool descriptions from the server
+            **kwargs: Additional configuration parameters
+        """
+        # Initialize tool_descs before parent __init__ so initialize() can access it
+        self.tool_descs: Optional[List[Dict[str, Any]]] = None
+
+        # Initialize Streamable HTTP specific config before parent __init__
+        # so initialize() can access it if needed
         self.config = MCPStreamableHTTPClientConfig(
             url=url,
             headers=headers or {},
         )
 
-        # Load tool descriptions synchronously on init
-        if auto_load:
+        # Initialize parent class (logger, callback, checkpoint, auto_initialize)
+        # This may call initialize() if auto_initialize=True
+        super().__init__(
+            logger=logger,
+            callback=callback,
+            checkpoint=checkpoint,
+            auto_initialize=auto_initialize,
+        )
+
+    def initialize(self) -> None:
+        """
+        Initialize the MCP Streamable HTTP client.
+
+        This method loads tool descriptions from the MCP server.
+        """
+        # Call parent initialize first (sets _initialized flag and logs)
+        super().initialize()
+
+        # Load tool descriptions as part of initialization
+        self._load_tool_descs()
+
+    def _load_tool_descs(self) -> None:
+        """Load tool descriptions from MCP server."""
+        try:
             self.tool_descs = self.list_tools(dump_to_openai_desc=True)
-        else:
-            self.tool_descs: Optional[List[Dict[str, Any]]] = None
+            if self.tool_descs:
+                self.logger.debug(f"Loaded {len(self.tool_descs)} tool descriptions from MCP server")
+        except Exception as e:
+            self.logger.warning(f"Failed to load tool descriptions: {str(e)}", exc_info=True)
+            self.tool_descs = []
 
     def _run_async(self, coro):
         """

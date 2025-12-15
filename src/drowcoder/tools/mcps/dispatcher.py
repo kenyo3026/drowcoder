@@ -37,6 +37,9 @@ class MCPInstance:
         if config:
             self.config = config
 
+        if self.config is None:
+            self.config = {}
+
         has_url = 'url' in self.config
         has_command = 'command' in self.config
 
@@ -235,8 +238,17 @@ class MCPDispatcher(MCPDispatcherConfigLoader):
 
             configs = {}
             for config_path in mcp_config.paths:
-                config = self.load(config_path)
-                configs.update(config)
+                _configs = self.load(config_path)
+
+                for server_name in _configs:
+                    if self.logger:
+                        _configs[server_name]['logger'] = self.logger
+                    if self.checkpoint:
+                        _configs[server_name]['checkpoint'] = self.checkpoint
+                    if self.callback:
+                        _configs[server_name]['callback'] = self.callback
+
+                    configs.update(_configs)
 
         for server_name, config in configs.items():
             if server_name in self.mcps:

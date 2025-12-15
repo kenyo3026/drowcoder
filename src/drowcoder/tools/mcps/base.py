@@ -273,11 +273,45 @@ class MCPBaseClient(ABC):
         logger: Optional[logging.Logger] = None,
         callback: Optional[Callable] = None,
         checkpoint: Optional[Union[str, Path]] = None,
+        auto_initialize: bool = True,
         **kwargs,
     ):
+        """
+        Initialize the MCP client with configuration.
+
+        Args:
+            logger: Optional logger instance for MCP operations
+            callback: Optional callback function for MCP events
+            checkpoint: Optional checkpoint root for persistence
+            auto_initialize: Whether to automatically call initialize() (default: True)
+            **kwargs: Additional configuration parameters
+        """
         self.logger = logger or logging.getLogger(self.__class__.__name__)
         self.callback = callback
         self.checkpoint = checkpoint
+
+        self._initialized = False
+
+        # Auto-initialize by default for convenience
+        if auto_initialize:
+            self.initialize()
+
+    def initialize(self) -> None:
+        """
+        Initialize the MCP client.
+
+        Called automatically in __init__ unless auto_initialize=False.
+        Subclasses can override to add custom initialization logic,
+        but should call super().initialize().
+
+        This method is idempotent - calling it multiple times is safe.
+        """
+        if self._initialized:
+            self.logger.debug(f"MCP client {self.__class__.__name__} already initialized, skipping")
+            return
+
+        self._initialized = True
+        self.logger.info(f"MCP client {self.__class__.__name__} initialized")
 
     @classmethod
     def from_dict(cls, data: Dict) -> "MCPBaseClient":
