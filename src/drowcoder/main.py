@@ -9,6 +9,7 @@ It provides the main entry point that can be used by different environments
 import argparse
 import pathlib
 import sys
+import traceback
 from dataclasses import dataclass
 from typing import Type
 
@@ -159,7 +160,7 @@ class Main:
                         agent.receive(postcompletion_task)
                         agent.complete(**postcompletion_kwargs)
                     except Exception as e:
-                        logger.error(f"Post-completion failed: {e}")
+                        logger.exception(f"Post-completion failed: {e}")
             else:
                 # Interactive/Hybrid mode: continuous loop with optional initial query
                 while True:
@@ -176,17 +177,18 @@ class Main:
                                 agent.receive(postcompletion_task)
                                 agent.complete(**postcompletion_kwargs)
                             except Exception as e:
-                                logger.error(f"Post-completion failed: {e}")
+                                logger.exception(f"Post-completion failed: {e}")
 
                     except KeyboardInterrupt:
                         logger.info("\n\nExiting DrowCoder. Goodbye!")
                         break
                     except Exception as e:
-                        logger.error(f"Error: {e}")
+                        logger.exception(f"Error: {e}")
                         logger.info("Continuing...")
 
         except Exception as e:
-            logger.error(f"Failed to initialize drowcoder: {e}")
+            logger.exception(f"Failed to initialize drowcoder: {e}")
+            logger.debug(f"Full traceback:\n{traceback.format_exc()}")
             return 1
 
         return 0
