@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass, field, asdict
 from functools import wraps
-from typing import Any, Dict, List, Callable, Optional, Union
+from typing import Any, Dict, List, Callable, Optional, Union, Literal
 from pathlib import Path
 
 import mcp
@@ -16,6 +16,9 @@ class MCPStdioClientConfig:
     command: Optional[str] = None
     args: Optional[List[str]] = field(default_factory=list)
     env: Optional[Dict[str, str]] = field(default_factory=dict)
+    cwd: Optional[Union[str, Path]] = None
+    encoding: str = "utf-8"
+    encoding_error_handler: Literal["strict", "ignore", "replace"] = "strict"
 
 class MCPStdioClient(MCPBaseClient):
     """MCP Stdio Client implementation"""
@@ -25,6 +28,9 @@ class MCPStdioClient(MCPBaseClient):
         command: Optional[str] = None,
         args: Optional[List[str]] = None,
         env: Optional[Dict[str, str]] = None,
+        cwd: Optional[Union[str, Path]] = None,
+        encoding: str = "utf-8",
+        encoding_error_handler: Literal["strict", "ignore", "replace"] = "strict",
         logger: Optional[logging.Logger] = None,
         callback: Optional[Callable] = None,
         checkpoint: Optional[Union[str, Path]] = None,
@@ -38,6 +44,9 @@ class MCPStdioClient(MCPBaseClient):
             command: Command to execute to start the MCP server
             args: Optional command line arguments
             env: Optional environment variables
+            cwd: Optional working directory for the process
+            encoding: Text encoding for messages (default: "utf-8")
+            encoding_error_handler: Encoding error handler (default: "strict")
             logger: Optional logger instance
             callback: Optional callback function
             checkpoint: Optional checkpoint root
@@ -53,7 +62,10 @@ class MCPStdioClient(MCPBaseClient):
         self.config = MCPStdioClientConfig(
             command=command,
             args=args or [],
-            env=env or {},
+            env=env,
+            cwd=cwd,
+            encoding=encoding,
+            encoding_error_handler=encoding_error_handler,
         )
 
         # Initialize parent class (logger, callback, checkpoint, auto_initialize)
@@ -79,7 +91,10 @@ class MCPStdioClient(MCPBaseClient):
             stdio_params = StdioServerParameters(
                 command=self.config.command,
                 args=self.config.args,
-                env=self.config.env if self.config.env else None,
+                env=self.config.env,
+                cwd=self.config.cwd,
+                encoding=self.config.encoding,
+                encoding_error_handler=self.config.encoding_error_handler,
             )
 
             try:
@@ -111,7 +126,10 @@ class MCPStdioClient(MCPBaseClient):
         stdio_params = StdioServerParameters(
             command=self.config.command,
             args=self.config.args,
-            env=self.config.env if self.config.env else None,
+            env=self.config.env,
+            cwd=self.config.cwd,
+            encoding=self.config.encoding,
+            encoding_error_handler=self.config.encoding_error_handler,
         )
 
         async with stdio_client(stdio_params) as (read, write):
@@ -146,7 +164,10 @@ class MCPStdioClient(MCPBaseClient):
             stdio_params = StdioServerParameters(
                 command=self.config.command,
                 args=self.config.args,
-                env=self.config.env if self.config.env else None,
+                env=self.config.env,
+                cwd=self.config.cwd,
+                encoding=self.config.encoding,
+                encoding_error_handler=self.config.encoding_error_handler,
             )
 
             async with stdio_client(stdio_params) as (read, write):
