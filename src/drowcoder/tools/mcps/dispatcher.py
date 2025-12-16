@@ -49,11 +49,11 @@ class MCPInstance:
             raise ValueError(f"Server '{self.name}' has both 'url' and 'command' fields, skip to init '{self.name}' client")
         elif has_url:
             self.transport_type = MCPTransportType.STREAMABLE_HTTP
-            self.client = MCPStreamableHTTPClient(**self.config)
+            self.client = MCPStreamableHTTPClient(**self.config, server_name=self.name)
             self.descs = self.client.tool_descs
         elif has_command:
             self.transport_type = MCPTransportType.STDIO
-            self.client = MCPStdioClient(**self.config)
+            self.client = MCPStdioClient(**self.config, server_name=self.name)
             self.descs = self.client.tool_descs
         else:
             self.transport_type = MCPTransportType.INVALID

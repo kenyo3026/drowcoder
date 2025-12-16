@@ -22,6 +22,7 @@ class MCPStdioClientConfig:
 
 class MCPStdioClient(MCPBaseClient):
     """MCP Stdio Client implementation"""
+    name = 'stdio'
 
     def __init__(
         self,
@@ -31,6 +32,7 @@ class MCPStdioClient(MCPBaseClient):
         cwd: Optional[Union[str, Path]] = None,
         encoding: str = "utf-8",
         encoding_error_handler: Literal["strict", "ignore", "replace"] = "strict",
+        server_name: str = None,
         logger: Optional[logging.Logger] = None,
         callback: Optional[Callable] = None,
         checkpoint: Optional[Union[str, Path]] = None,
@@ -47,6 +49,7 @@ class MCPStdioClient(MCPBaseClient):
             cwd: Optional working directory for the process
             encoding: Text encoding for messages (default: "utf-8")
             encoding_error_handler: Encoding error handler (default: "strict")
+            server_name: Optional server name for identification (defaults to command + args)
             logger: Optional logger instance
             callback: Optional callback function
             checkpoint: Optional checkpoint root
@@ -71,6 +74,7 @@ class MCPStdioClient(MCPBaseClient):
         # Initialize parent class (logger, callback, checkpoint, auto_initialize)
         # This may call initialize() if auto_initialize=True
         super().__init__(
+            server_name=server_name or (f'{command} {" ".join(args)}' if command else ''),
             logger=logger,
             callback=callback,
             checkpoint=checkpoint,

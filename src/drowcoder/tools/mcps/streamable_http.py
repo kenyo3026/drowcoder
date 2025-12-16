@@ -18,12 +18,14 @@ class MCPStreamableHTTPClientConfig:
     headers: Optional[Dict[str, str]] = field(default_factory=dict)
 
 class MCPStreamableHTTPClient(MCPBaseClient):
-    """Base class for MCP Client implementations"""
+    """MCP Streamable HTTP Client implementation"""
+    name = 'streamable http'
 
     def __init__(
         self,
         url: str,
         headers: Optional[Dict[str, str]] = None,
+        server_name: str = None,
         logger: Optional[logging.Logger] = None,
         callback: Optional[Callable] = None,
         checkpoint: Optional[Union[str, Path]] = None,
@@ -36,6 +38,7 @@ class MCPStreamableHTTPClient(MCPBaseClient):
         Args:
             url: MCP server URL
             headers: Optional HTTP headers
+            server_name: Optional server name for identification (defaults to url)
             logger: Optional logger instance
             callback: Optional callback function
             checkpoint: Optional checkpoint root
@@ -43,6 +46,7 @@ class MCPStreamableHTTPClient(MCPBaseClient):
                            When True, will also load tool descriptions from the server
             **kwargs: Additional configuration parameters
         """
+
         # Initialize tool_descs before parent __init__ so initialize() can access it
         self.tool_descs: Optional[List[Dict[str, Any]]] = None
 
@@ -56,6 +60,7 @@ class MCPStreamableHTTPClient(MCPBaseClient):
         # Initialize parent class (logger, callback, checkpoint, auto_initialize)
         # This may call initialize() if auto_initialize=True
         super().__init__(
+            server_name=server_name or url,
             logger=logger,
             callback=callback,
             checkpoint=checkpoint,

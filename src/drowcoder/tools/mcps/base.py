@@ -241,10 +241,18 @@ class MCPResponse:
         )
 
 class MCPBaseClient(ABC):
-    """Base class for MCP Client implementations"""
+    """
+    Base class for MCP Client implementations.
+
+    Provides common functionality for connecting to MCP servers via different
+    transport protocols (Streamable HTTP, Stdio, etc.). Subclasses implement
+    transport-specific connection logic.
+    """
+    name = 'base'
 
     def __init__(
         self,
+        server_name: str = None,
         logger: Optional[logging.Logger] = None,
         callback: Optional[Callable] = None,
         checkpoint: Optional[Union[str, Path]] = None,
@@ -255,12 +263,15 @@ class MCPBaseClient(ABC):
         Initialize the MCP client with configuration.
 
         Args:
+            server_name: Optional server name for identification and logging
             logger: Optional logger instance for MCP operations
             callback: Optional callback function for MCP events
             checkpoint: Optional checkpoint root for persistence
             auto_initialize: Whether to automatically call initialize() (default: True)
             **kwargs: Additional configuration parameters
         """
+        self.server_name = server_name or ''
+
         self.logger = logger or logging.getLogger(self.__class__.__name__)
         self.callback = callback
         self.checkpoint = checkpoint
@@ -287,11 +298,11 @@ class MCPBaseClient(ABC):
         This method is idempotent - calling it multiple times is safe.
         """
         if self._initialized:
-            self.logger.debug(f"MCP client {self.__class__.__name__} already initialized, skipping")
+            self.logger.debug(f"MCP c{self.name} {self.server_name} client already initialized, skipping")
             return
 
         self._initialized = True
-        self.logger.info(f"MCP client {self.__class__.__name__} initialized")
+        self.logger.info(f"MCP {self.name} {self.server_name} client initialized")
 
         self._load_tool_descs()
 
