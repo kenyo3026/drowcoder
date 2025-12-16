@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, asdict
@@ -239,32 +240,6 @@ class MCPResponse:
             [f'{key}: {str(value)}' for key, value in _dict.items()]
         )
 
-# @dataclass
-# class MCPClientConfig:
-#     """
-#     Base configuration for all tools.
-
-#     Attributes:
-#         logger: Optional logger instance for tool operations
-#         callback: Optional callback function for tool events
-#         checkpoint: Optional checkpoint root for tools that need persistence
-#     """
-#     logger: Optional[logging.Logger] = None
-#     callback: Optional[Callable] = None
-#     checkpoint: Optional[Union[str, Path]] = None
-
-# @dataclass
-# class MCPBaseClientConnectionConfig:
-
-#     # for stdio
-#     command: str = None,
-#     args: Optional[List] = field(default_factory=list),
-#     env: Optional[Dict] = field(default_factory=dict),
-
-#     # for streamable http
-#     url: str = None
-#     headers: Optional[Dict[str, str]] = field(default_factory=dict)
-
 class MCPBaseClient(ABC):
     """Base class for MCP Client implementations"""
 
@@ -296,6 +271,11 @@ class MCPBaseClient(ABC):
         if auto_initialize:
             self.initialize()
 
+    @classmethod
+    def from_dict(cls, data: Dict) -> "MCPBaseClient":
+        """Create instance from dictionary"""
+        return cls(**data)
+
     def initialize(self) -> None:
         """
         Initialize the MCP client.
@@ -313,16 +293,58 @@ class MCPBaseClient(ABC):
         self._initialized = True
         self.logger.info(f"MCP client {self.__class__.__name__} initialized")
 
-    @classmethod
-    def from_dict(cls, data: Dict) -> "MCPBaseClient":
-        """Create instance from dictionary"""
-        return cls(**data)
+        self._load_tool_descs()
 
-    @abstractmethod
+    def _load_tool_descs(self) -> None:
+        """Load tool descriptions from MCP server."""
+        try:
+            self.tool_descs = self.list_tools(dump_to_openai_desc=True)
+            if self.tool_descs:
+                self.logger.debug(f"Loaded {len(self.tool_descs)} tool descriptions from MCP server")
+        except Exception as e:
+            self.logger.warning(f"Failed to load tool descriptions: {str(e)}", exc_info=True)
+            self.tool_descs = []
+
     def is_connected(self) -> bool:
         """Check if the client is connected to the MCP server"""
         # TODO: Will be implemented in upcoming version
-        ...
+        return
+
+    def _run_async(self, coro):
+        """
+        Safely run async coroutine in sync context.
+        Handles both cases: with and without existing event loop.
+        """
+        try:
+            # Try to get existing event loop (works in Jupyter, asyncio.run context, etc.)
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # If loop is running, try to use nest_asyncio if available
+                # nest_asyncio allows nested event loops (common in Jupyter)
+                try:
+                    import nest_asyncio
+                    # nest_asyncio.apply() should be called once at module level
+                    # If not applied yet, apply it here
+                    try:
+                        nest_asyncio.apply()
+                    except RuntimeError:
+                        # Already applied, continue
+                        pass
+                    # After applying nest_asyncio, we can use run_until_complete
+                    # even in a running loop
+                    return loop.run_until_complete(coro)
+                except (ImportError, RuntimeError):
+                    # Fallback: create new event loop in thread
+                    import concurrent.futures
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future = executor.submit(asyncio.run, coro)
+                        return future.result()
+            else:
+                # Loop exists but not running, use run_until_complete
+                return loop.run_until_complete(coro)
+        except RuntimeError:
+            # No event loop exists, create new one
+            return asyncio.run(coro)
 
     @abstractmethod
     def with_session(self, func: Callable) -> Callable:
@@ -334,11 +356,38 @@ class MCPBaseClient(ABC):
         # TODO: Will be implemented in upcoming version
         ...
 
-    def list_tools(self):
+    @abstractmethod
+    async def _list_tools_async(self, dump_to_openai_desc: bool = False):
         ...
 
-    def call_tool(self):
+    def list_tools(self, dump_to_openai_desc: bool = False):
+        """
+        List all available tools from the MCP server (synchronous).
+
+        Args:
+            dump_to_openai_desc: If True, returns OpenAI-compatible format
+
+        Returns:
+            List of tool descriptions
+        """
+        return self._run_async(self._list_tools_async(dump_to_openai_desc))
+
+    @abstractmethod
+    async def _call_tool_async(self, tool_name: str, **arguments):
         ...
+
+    def call_tool(self, tool_name: str, **arguments):
+        """
+        Call a specific tool with given arguments (synchronous).
+
+        Args:
+            tool_name: Name of the tool to call
+            **arguments: Arguments to pass to the tool
+
+        Returns:
+            MCPResponse object with standardized format
+        """
+        return self._run_async(self._call_tool_async(tool_name, **arguments))
 
     # TODO
     # Available methods:
