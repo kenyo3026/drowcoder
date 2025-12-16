@@ -51,16 +51,14 @@ class MCPInstance:
             self.transport_type = MCPTransportType.STREAMABLE_HTTP
             self.client = MCPStreamableHTTPClient(**self.config)
             self.descs = self.client.tool_descs
-            # TODO: handle client registration status (success or failed)
         elif has_command:
             self.transport_type = MCPTransportType.STDIO
             self.client = MCPStdioClient(**self.config)
             self.descs = self.client.tool_descs
-            # TODO: handle client registration status (success or failed)
         else:
             self.transport_type = MCPTransportType.INVALID
-            # TODO: handle invalid mcp config in upcoming version
-            pass
+            self.client = None
+            self.descs = None
 
 @dataclass
 class MCPDispatcherConfig:
