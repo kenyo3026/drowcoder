@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from functools import partial
 from typing import Any, Dict, List, Callable, Optional, Union
 
+from .stdio import MCPStdioClient
 from .streamable_http import MCPStreamableHTTPClient
 
 
@@ -23,7 +24,7 @@ class MCPTransportType:
 class MCPInstance:
     name           : str
     config         : Dict[str, Any]
-    client         : Optional[MCPStreamableHTTPClient] = None
+    client         : Optional[Union[MCPStreamableHTTPClient, MCPStdioClient]] = None
     descs          : Optional[List[dict]] = None
     transport_type : Optional[str] = None
     enabled        : bool = True
@@ -53,8 +54,9 @@ class MCPInstance:
             # TODO: handle client registration status (success or failed)
         elif has_command:
             self.transport_type = MCPTransportType.STDIO
-            # TODO: support stdio client in upcoming version
-            pass
+            self.client = MCPStdioClient(**self.config)
+            self.descs = self.client.tool_descs
+            # TODO: handle client registration status (success or failed)
         else:
             self.transport_type = MCPTransportType.INVALID
             # TODO: handle invalid mcp config in upcoming version
