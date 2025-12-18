@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import pathlib
@@ -33,10 +34,18 @@ class MCPInstance:
     runtime        : Optional[ToolRuntimeDict] = field(default_factory=dict)
 
     def __post_init__(self):
-        if self.client is None: self.update_client()
+        if self.client is None:
+            self.update_client(auto_initialize=False)
 
-    def update_client(self, config: Optional[Dict[str, Any]] = None):
+    def update_client(self, config: Optional[Dict[str, Any]] = None, auto_initialize: bool = True):
+        """
+        Update or create MCP client.
 
+        Args:
+            config: Optional new configuration to apply
+            auto_initialize: Whether to automatically initialize the client (default: True)
+                           Set to False when creating multiple clients for parallel initialization
+        """
         if config:
             self.config = config
 
@@ -55,20 +64,37 @@ class MCPInstance:
                 server_name=self.name,
                 **self.config,
                 **self.runtime,
+                auto_initialize=auto_initialize,
             )
-            self.descs = self.client.tool_descs
+            if auto_initialize:
+                self.descs = self.client.tool_descs
         elif has_command:
             self.transport_type = MCPTransportType.STDIO
             self.client = MCPStdioClient(
                 server_name=self.name,
                 **self.config,
                 **self.runtime,
+                auto_initialize=auto_initialize,
             )
-            self.descs = self.client.tool_descs
+            if auto_initialize:
+                self.descs = self.client.tool_descs
         else:
             self.transport_type = MCPTransportType.INVALID
             self.client = None
             self.descs = None
+
+    async def initialize_async(self):
+        """
+        Asynchronously initialize the MCP client.
+
+        This method can be used for parallel initialization of multiple MCP instances.
+        """
+        if self.client is None:
+            return
+
+        # Call the client's initialize method
+        self.client.initialize()
+        self.descs = self.client.tool_descs
 
 @dataclass
 class MCPDispatcherConfig:
@@ -206,6 +232,7 @@ class MCPDispatcher(MCPDispatcherConfigLoader):
         self,
         configs: Union[None, str, pathlib.Path, List[Union[str, pathlib.Path]], Dict[str, Any]] = None,
         config_root: Union[None, str, pathlib.Path] = None,
+        parallel_init: bool = True,
     ) -> Dict[str, MCPInstance]:
         """
         Load and apply MCP instances from configuration file or direct config dict.
@@ -223,6 +250,8 @@ class MCPDispatcher(MCPDispatcherConfigLoader):
                     OR: {"mcpServers": {"server_name": {...}, ...}}
             config_root: Root directory for resolving relative paths.
                 If None, uses initial root.
+            parallel_init: Whether to initialize MCP clients in parallel (default: True).
+                Parallel initialization significantly reduces startup time when multiple MCPs are configured.
 
         Returns:
             Dictionary mapping server names to MCPInstance objects.
@@ -257,19 +286,63 @@ class MCPDispatcher(MCPDispatcherConfigLoader):
             callback=self.callback,
         )
 
+        # Create or update instances
+        instances_to_init = []
         for server_name, config in configs.items():
             if server_name in self.mcps:
                 # Update existing instance (preserves object reference)
-                self.mcps[server_name].update_client(config)
+                # Note: Does NOT re-initialize existing instances to avoid redundant initialization
+                self.mcps[server_name].update_client(config, auto_initialize=True)
             else:
-                # Create new instance
-                self.mcps[server_name] = MCPInstance(
+                # Create new instance (without auto-initialization for parallel init)
+                instance = MCPInstance(
                     name=server_name,
                     config=config,
                     runtime=runtime,
                 )
+                self.mcps[server_name] = instance
+                instances_to_init.append(instance)
+
+        # Initialize new instances (parallel or sequential)
+        if parallel_init and instances_to_init:
+            self._parallel_initialize(instances_to_init)
+        else:
+            for instance in instances_to_init:
+                if instance.client:
+                    instance.client.initialize()
+                    instance.descs = instance.client.tool_descs
 
         return self.mcps
+
+    def _parallel_initialize(self, instances: List[MCPInstance]):
+        """
+        Initialize multiple MCP instances in parallel using asyncio.gather.
+
+        Args:
+            instances: List of MCPInstance objects to initialize
+        """
+        import time
+        start_time = time.perf_counter()
+
+        async def init_all():
+            tasks = [instance.initialize_async() for instance in instances]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            # Log any errors that occurred during initialization
+            for instance, result in zip(instances, results):
+                if isinstance(result, Exception):
+                    self.logger.error(f"Failed to initialize MCP server '{instance.name}': {result}")
+
+        # Run the async initialization
+        try:
+            asyncio.run(init_all())
+        except RuntimeError:
+            # If there's already an event loop running, use it
+            loop = asyncio.get_event_loop()
+            loop.run_until_complete(init_all())
+
+        duration = (time.perf_counter() - start_time) * 1000
+        self.logger.debug(f"Parallel initialization of {len(instances)} MCP instances completed in {duration:.2f}ms")
 
     def disable_mcps(self, mcp_names: List[str]):
         """Disable specific MCP servers by name"""
