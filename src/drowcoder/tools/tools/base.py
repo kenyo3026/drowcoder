@@ -13,21 +13,6 @@ import logging
 
 
 @dataclass
-class ToolConfig:
-    """
-    Base configuration for all tools.
-
-    Attributes:
-        name: Tool name identifier
-        logger: Optional logger instance for tool operations
-        callback: Optional callback function for tool events
-        checkpoint: Optional checkpoint root for tools that need persistence
-    """
-    logger: Optional[logging.Logger] = None
-    callback: Optional[Callable] = None
-    checkpoint: Optional[Union[str, Path]] = None
-
-@dataclass
 class ToolResponseMetadata:
     """
     Base metadata for tool execution responses.
@@ -182,29 +167,28 @@ class BaseTool(ABC):
     name = 'base'
     dumping_fields = {'as_type', 'filter_empty_fields', 'filter_metadata_fields'}
 
-    def __init__(self, config: Optional[ToolConfig] = None, auto_initialize: bool = True, **kwargs):
+    def __init__(
+        self,
+        logger: Optional[logging.Logger] = None,
+        callback: Optional[Callable] = None,
+        checkpoint: Optional[Union[str, Path]] = None,
+        auto_initialize: bool = True,
+        **kwargs
+    ):
         """
         Initialize the tool with configuration.
 
         Args:
-            config: Optional ToolConfig instance. If None, creates one from kwargs.
+            logger: Optional logger instance for tool operations.
+                If None, creates a logger with the class name.
+            callback: Optional callback function for tool events
+            checkpoint: Optional checkpoint root for persistence
             auto_initialize: Whether to automatically call initialize() (default: True)
-            **kwargs: Configuration parameters matching ToolConfig fields:
-                - name: Tool name identifier (defaults to class name)
-                - logger: Optional logger instance for tool operations
-                - callback: Optional callback function for tool events
-                - checkpoint: Optional checkpoint root for persistence
+            **kwargs: Additional keyword arguments (for subclasses to extend)
         """
-        # Always create a fresh ToolConfig from kwargs
-        # This simplifies the logic and avoids dataclass replace issues
-        config = ToolConfig(**kwargs)
-
-        # Set all config attributes as instance attributes directly
-        for key, value in config.__dict__.items():
-            setattr(self, key, value)
-
-        if self.logger is None:
-            self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger = logger or logging.getLogger(self.__class__.__name__)
+        self.callback = callback
+        self.checkpoint = checkpoint
 
         self._initialized = False
 
