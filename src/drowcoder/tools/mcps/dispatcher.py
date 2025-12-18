@@ -3,12 +3,13 @@ import logging
 import pathlib
 import yaml
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import partial
 from typing import Any, Dict, List, Callable, Optional, Union
 
 from .stdio import MCPStdioClient
 from .streamable_http import MCPStreamableHTTPClient
+from ..runtime import ToolRuntimeDict
 
 
 DEFAULT_MCP_CONFIG_ROOT = pathlib.Path(__file__).resolve().parent
@@ -29,6 +30,7 @@ class MCPInstance:
     transport_type : Optional[str] = None
     enabled        : bool = True
     registered     : bool = False
+    runtime        : Optional[ToolRuntimeDict] = field(default_factory=dict)
 
     def __post_init__(self):
         if self.client is None: self.update_client()
@@ -49,11 +51,19 @@ class MCPInstance:
             raise ValueError(f"Server '{self.name}' has both 'url' and 'command' fields, skip to init '{self.name}' client")
         elif has_url:
             self.transport_type = MCPTransportType.STREAMABLE_HTTP
-            self.client = MCPStreamableHTTPClient(**self.config, server_name=self.name)
+            self.client = MCPStreamableHTTPClient(
+                server_name=self.name,
+                **self.config,
+                **self.runtime,
+            )
             self.descs = self.client.tool_descs
         elif has_command:
             self.transport_type = MCPTransportType.STDIO
-            self.client = MCPStdioClient(**self.config, server_name=self.name)
+            self.client = MCPStdioClient(
+                server_name=self.name,
+                **self.config,
+                **self.runtime,
+            )
             self.descs = self.client.tool_descs
         else:
             self.transport_type = MCPTransportType.INVALID
@@ -238,17 +248,14 @@ class MCPDispatcher(MCPDispatcherConfigLoader):
 
             configs = {}
             for config_path in mcp_config.paths:
-                _configs = self.load(config_path)
+                config = self.load(config_path)
+                configs.update(config)
 
-                for server_name in _configs:
-                    if self.logger:
-                        _configs[server_name]['logger'] = self.logger
-                    if self.checkpoint:
-                        _configs[server_name]['checkpoint'] = self.checkpoint
-                    if self.callback:
-                        _configs[server_name]['callback'] = self.callback
-
-                    configs.update(_configs)
+        runtime: ToolRuntimeDict = dict(
+            logger=self.logger,
+            checkpoint=self.checkpoint,
+            callback=self.callback,
+        )
 
         for server_name, config in configs.items():
             if server_name in self.mcps:
@@ -256,7 +263,11 @@ class MCPDispatcher(MCPDispatcherConfigLoader):
                 self.mcps[server_name].update_client(config)
             else:
                 # Create new instance
-                self.mcps[server_name] = MCPInstance(name=server_name, config=config)
+                self.mcps[server_name] = MCPInstance(
+                    name=server_name,
+                    config=config,
+                    runtime=runtime,
+                )
 
         return self.mcps
 
