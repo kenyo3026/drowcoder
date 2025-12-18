@@ -111,7 +111,7 @@ class RichLogger(DefaultLogger):
 
 
 def enable_default_logger(
-    level     : LogLevel = logging.INFO,
+    level     : LogLevel = logging.DEBUG,
     directory : Union[str, pathlib.Path] = None,
     name      : Optional[str] = None,
     reinit    : bool = True,
@@ -122,7 +122,7 @@ def enable_default_logger(
 
 
 def enable_rich_logger(
-    level     : LogLevel = logging.INFO,
+    level     : LogLevel = logging.DEBUG,
     directory : Union[str, pathlib.Path] = None,
     name      : Optional[str] = None,
     reinit    : bool = True,
