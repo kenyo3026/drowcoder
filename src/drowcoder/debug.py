@@ -52,7 +52,7 @@ class DebugMain(Main):
         logger = enable_rich_logger(directory=logger_path)
 
         # Load configuration
-        config_morpher = ConfigMorpher.from_yaml(config)
+        config_morpher = ConfigMorpher(config)
 
         models = config_morpher.fetch('models')
         models = ModelDispatcher(models, morph=True)

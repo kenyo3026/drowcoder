@@ -10,8 +10,8 @@ import argparse
 import pathlib
 import sys
 import traceback
-from dataclasses import dataclass
-from typing import Type
+from dataclasses import dataclass, field
+from typing import List, Type, Union
 
 import litellm
 from config_morpher import ConfigMorpher
@@ -35,7 +35,7 @@ def get_version() -> str:
 class MainArgs:
     # Primary arguments
     query       :str  = None
-    config      :str  = './config.yaml'
+    config      :Union[str, List[Union[str, pathlib.Path]]] = field(default_factory=lambda: ['./config.yaml'])
     model       :str  = None
     interactive :bool = False
     workspace   :str  = None
@@ -52,7 +52,7 @@ class MainArgs:
 
         # Setup primary arguments
         parser.add_argument("-q", "--query", default=cls.query, help="Headless mode: process query directly, otherwise interactive mode")
-        parser.add_argument("-c", "--config", default=cls.config, help="Path to configuration file")
+        parser.add_argument("-c", "--config", default=None, action='append', help="Path list to configuration file")
         parser.add_argument("-m", "--model", default=cls.model, help="Model to use")
         parser.add_argument("-i", "--interactive", action="store_true", help="Run in interactive mode")
         parser.add_argument("-w", "--workspace", default=cls.workspace, help="Workspace directory")
@@ -96,7 +96,7 @@ class Main:
 
         # Regular execution
         query = args.query
-        config = args.config
+        config = args.config or cls.config
         model = args.model
         interactive = args.interactive if query else True
         workspace = args.workspace
@@ -108,7 +108,7 @@ class Main:
         logger = enable_rich_logger(directory=logger_path)
 
         # Load configuration
-        config_morpher = ConfigMorpher.from_yaml(config)
+        config_morpher = ConfigMorpher(config)
 
         models = config_morpher.fetch('models')
         models = ModelDispatcher(models, morph=True)

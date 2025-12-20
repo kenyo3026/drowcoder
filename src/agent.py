@@ -20,7 +20,7 @@ if __name__ == '__main__':
     checkpoint = args.checkpoint or \
         f'../checkpoints/{CHECKPOINT_DEFAULT_NAME()}'
 
-    config_morpher = ConfigMorpher.from_yaml(configs)
+    config_morpher = ConfigMorpher(configs)
 
     completion_kwargs = config_morpher.morph(
         litellm.completion,
