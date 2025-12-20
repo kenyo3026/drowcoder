@@ -1,5 +1,7 @@
 PyYAML
 litellm
+mcp
+rich
 
 pytest
 pytest-cov
