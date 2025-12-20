@@ -139,9 +139,13 @@ class ToolDispatcherConfigLoader:
         Returns:
             List of tool configurations from the 'tools' key, or empty list if not found
         """
-        with open(source_file, 'r', encoding='utf-8') as f:
-            source = yaml.safe_load(f) or {}
-            return source.get(self.tag, [])
+        try:
+            with open(source_file, 'r', encoding='utf-8') as f:
+                source = yaml.safe_load(f) or {}
+                return source.get(self.tag, [])
+        except (yaml.YAMLError, ValueError):
+            # Handle empty or invalid YAML files
+            return []
 
     def load_from_json(self, source_file: pathlib.Path) -> List[Any]:
         """
@@ -153,9 +157,13 @@ class ToolDispatcherConfigLoader:
         Returns:
             List of tool configurations from the 'tools' key, or empty list if not found
         """
-        with open(source_file, 'r', encoding='utf-8') as f:
-            source = json.load(f) or {}
-            return source.get(self.tag, [])
+        try:
+            with open(source_file, 'r', encoding='utf-8') as f:
+                source = json.load(f) or {}
+                return source.get(self.tag, [])
+        except (json.JSONDecodeError, ValueError):
+            # Handle empty or invalid JSON files
+            return []
 
 class ToolDispatcher(ToolDispatcherConfigLoader):
     """
