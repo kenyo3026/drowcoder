@@ -210,7 +210,11 @@ class ToolDispatcher(ToolDispatcherConfigLoader):
         self._init_configs = configs
         self._init_config_root = config_root
 
-        self.apply_tools(configs, config_root=config_root)
+        # Load system config as default, then apply user config if provided
+        self.apply_tools()
+        if configs:
+            self.apply_tools(configs, config_root=config_root)
+
         self.default_tools = deepcopy(self.tools)
 
     def apply_tools(
