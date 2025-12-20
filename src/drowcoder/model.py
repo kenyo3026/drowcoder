@@ -20,19 +20,22 @@ class ModelDispatcher:
 
     def dispatch(self, morph:bool=True):
         for model in self.models:
-            if 'roles' in model:
-                for i in range(len(model['roles'])):
-                    if isinstance(model['roles'][i], str):
-                        role, task = model['roles'][i], None
-                    elif isinstance(model['roles'][i], dict):
-                        role, task = next(iter(model['roles'][i].items()))
+            # Use 'or' instead of get() default to handle None and empty list cases
+            # get() only uses default when key is missing, not when value is None/[]
+            roles = model.get('roles') or [ModelRoleType.chatcompletions]
 
-                    _model = {**model} # shallow copy
-                    _model['roles'] = {role:task}
-                    if role == ModelRoleType.chatcompletions:
-                        self.for_chatcompletions['models'].append(_model)
-                    elif role == ModelRoleType.postcompletions:
-                        self.for_postcompletions['models'].append(_model)
+            for i in range(len(roles)):
+                if isinstance(roles[i], str):
+                    role, task = roles[i], None
+                elif isinstance(roles[i], dict):
+                    role, task = next(iter(roles[i].items()))
+
+                _model = {**model} # shallow copy
+                _model['roles'] = {role:task}
+                if role == ModelRoleType.chatcompletions:
+                    self.for_chatcompletions['models'].append(_model)
+                elif role == ModelRoleType.postcompletions:
+                    self.for_postcompletions['models'].append(_model)
 
         if morph:
             self.for_chatcompletions = ConfigMorpher(self.for_chatcompletions)

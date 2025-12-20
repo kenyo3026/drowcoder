@@ -119,7 +119,7 @@ class Main:
         )
 
         postcompletion_kwargs, postcompletion_task = {}, None
-        if models.for_postcompletions:
+        if models.for_postcompletions and models.for_postcompletions.fetch('models'):
             postcompletion_kwargs = models.for_postcompletions.morph(
                 litellm.completion,
                 # TODO enable to start_from models[name={model} or model={model}]
