@@ -169,7 +169,7 @@ Specific markdown rules:
 - Bullet points (which should be formatted with '- ' instead of '• ') should also have bold markdown as a psuedo-heading, especially if there are sub-bullets. Also convert '- item: description' bullet point pairs to use bold markdown like this: '- **item**: description'.
 - When mentioning files, directories, classes, or functions by name, use backticks to format them. Ex. `app/components/Card.tsx`
 - When mentioning URLs, do NOT paste bare URLs. Always use backticks or markdown links. Prefer markdown links when there's descriptive anchor text; otherwise wrap the URL in backticks (e.g., `https://example.com`).
-- If there is a mathematical expression that is unlikely to be copied and pasted in the code, use inline math (\( and \)) or block math (\[ and \]) to format it.
+- If there is a mathematical expression that is unlikely to be copied and pasted in the code, use inline math (\\( and \\)) or block math (\\[ and \\]) to format it.
 
 Specific code block rules:
 - Follow the citing_code rules for displaying code found in the codebase.
