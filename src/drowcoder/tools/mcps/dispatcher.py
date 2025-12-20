@@ -225,42 +225,33 @@ class MCPDispatcher(MCPDispatcherConfigLoader):
         self._init_configs = configs
         self._init_config_root = config_root
 
-        self.apply_mcps(configs, config_root=config_root)
+        # Load system config as default, then apply user config if provided
+        self.update_mcps()
+        if configs:
+            self.apply_mcps(configs, config_root=config_root)
+
         self.default_mcps = deepcopy(self.mcps)
 
-    def apply_mcps(
+    def update_mcps(
         self,
         configs: Union[None, str, pathlib.Path, List[Union[str, pathlib.Path]], Dict[str, Any]] = None,
         config_root: Union[None, str, pathlib.Path] = None,
-        parallel_init: bool = True,
-    ) -> Dict[str, MCPInstance]:
+    ) -> List[MCPInstance]:
         """
-        Load and apply MCP instances from configuration file or direct config dict.
-
-        If a server already exists, updates its configuration and client.
-        If a server doesn't exist, creates a new MCPInstance.
+        Update MCP configurations without initialization.
 
         Args:
             configs: Configuration source. Can be:
-                - None: Uses initial configuration
+                - None: Uses initial configuration (system default: mcps.json)
                 - str/Path: Single configuration file path
                 - List[str/Path]: Multiple configuration file paths
                 - Dict[str, Any]: Direct MCP servers configuration
-                    Format: {"server_name": {"url": "...", "headers": {...}}, ...}
-                    OR: {"mcpServers": {"server_name": {...}, ...}}
             config_root: Root directory for resolving relative paths.
-                If None, uses initial root.
-            parallel_init: Whether to initialize MCP clients in parallel (default: True).
-                Parallel initialization significantly reduces startup time when multiple MCPs are configured.
+                If None, uses initial root (defaults to module directory).
 
         Returns:
-            Dictionary mapping server names to MCPInstance objects.
-
-        Behavior:
-            - apply_mcps(): Reload from initial configuration
-            - apply_mcps("new.json"): Load from new configuration file
-            - apply_mcps("new.json", "/new/root"): Load with custom root
-            - apply_mcps({"server_name": {...}}): Apply direct configuration dict
+            List of new MCPInstance objects that need initialization.
+            Existing instances are updated but not re-initialized.
         """
         # If no arguments provided, use initial configuration
         if configs is None and config_root is None:
@@ -302,6 +293,34 @@ class MCPDispatcher(MCPDispatcherConfigLoader):
                 )
                 self.mcps[server_name] = instance
                 instances_to_init.append(instance)
+
+        return instances_to_init
+
+    def apply_mcps(
+        self,
+        configs: Union[None, str, pathlib.Path, List[Union[str, pathlib.Path]], Dict[str, Any]] = None,
+        config_root: Union[None, str, pathlib.Path] = None,
+        parallel_init: bool = True,
+    ) -> Dict[str, MCPInstance]:
+        """
+        Update MCP configurations and initialize new instances.
+
+        User configs override system configs for same server names (Linux-style).
+
+        Args:
+            configs: Configuration source. Can be:
+                - None: Uses initial configuration (system default: mcps.json)
+                - str/Path: Single configuration file path
+                - List[str/Path]: Multiple configuration file paths
+                - Dict[str, Any]: Direct MCP servers configuration
+            config_root: Root directory for resolving relative paths.
+                If None, uses initial root (defaults to module directory).
+            parallel_init: Whether to initialize MCP clients in parallel (default: True).
+
+        Returns:
+            Dictionary mapping server names to MCPInstance objects.
+        """
+        instances_to_init = self.update_mcps(configs, config_root=config_root)
 
         # Initialize new instances (parallel or sequential)
         if parallel_init and instances_to_init:
