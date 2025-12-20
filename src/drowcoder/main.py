@@ -130,12 +130,14 @@ class Main:
             )
 
         tools = config_morpher.fetch('tools', None)
+        mcps = config_morpher.fetch('mcps', None)
 
         try:
             # Create and initialize agent
             agent = DrowAgent(
                 workspace=workspace,
                 tools=tools,
+                mcps=mcps,
                 checkpoint=checkpoint,
                 logger=logger,
                 **completion_kwargs,
