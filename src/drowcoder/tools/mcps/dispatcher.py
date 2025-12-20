@@ -130,7 +130,7 @@ class MCPDispatcherConfig:
 
 class MCPDispatcherConfigLoader:
 
-    tag = 'mcpServers'
+    tag = 'mcps'
 
     def load(self, source_file: Union[None, str, pathlib.Path] = None) -> Dict[str, Any]:
         """
@@ -177,7 +177,7 @@ class MCPDispatcherConfigLoader:
             source_file: Path to YAML file
 
         Returns:
-            Dictionary containing mcpServers configuration, or empty dict if not found
+            Dictionary containing mcps configuration, or empty dict if not found
         """
         try:
             with open(source_file, 'r', encoding='utf-8') as f:
@@ -195,7 +195,7 @@ class MCPDispatcherConfigLoader:
             source_file: Path to JSON file
 
         Returns:
-            Dictionary containing mcpServers configuration, or empty dict if not found
+            Dictionary containing mcps configuration, or empty dict if not found
         """
         try:
             with open(source_file, 'r', encoding='utf-8') as f:
@@ -268,7 +268,7 @@ class MCPDispatcher(MCPDispatcherConfigLoader):
 
         # Handle Dict case - direct MCP servers configuration
         if isinstance(configs, dict):
-            # Extract mcpServers if present, otherwise assume configs is mcpServers dict
+            # Extract mcps if present, otherwise assume configs is mcps dict
             configs = configs.get(self.tag, configs)
         else:
             # Handle file paths case

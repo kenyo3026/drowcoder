@@ -71,8 +71,8 @@ class DrowAgent:
                 Supports two formats:
                 1. Normal format:
                    {"server_name": {"url": "...", "headers": {...}}, ...}
-                2. Cursor format:
-                   {"mcpServers": {"server_name": {"url": "...", "headers": {...}}, ...}}
+                2. Nested format:
+                   {"mcps": {"server_name": {"url": "...", "headers": {...}}, ...}}
             keep_last_k_tool_call_contexts: Number of tool call contexts to keep
             logger: Optional logger instance
             checkpoint: Checkpoint directory or Checkpoint instance
