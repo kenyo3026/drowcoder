@@ -3,7 +3,7 @@
 An agentic AI assistant 🤖 specialized in programming, featuring a unified tool dispatcher architecture with built-in tools and MCP (Model Context Protocol) integration.
 
 > [!NOTE]
-> This project is currently in early development. Features and APIs may change significantly.
+> This project is under active development. Features and APIs may change significantly.
 
 ## ✨ Key Features
 
