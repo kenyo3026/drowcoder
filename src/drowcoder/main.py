@@ -45,6 +45,7 @@ class MainArgs:
     # Subcommands
     command    :str=None
     config_action :str=None
+    config_file :str=None  # For 'config set' command
 
     @classmethod
     def from_args(cls):
@@ -66,8 +67,13 @@ class MainArgs:
         parser_for_config = subparsers.add_parser('config', help='Configuration management')
         subparsers_for_config = parser_for_config.add_subparsers(dest='config_action', help='Config actions')
         subparsers_for_config.add_parser('edit', help='Edit configuration file')
-        subparsers_for_config.add_parser('show', help='Show current configuration')
         subparsers_for_config.add_parser('validate', help='Validate configuration file')
+
+        parser_show = subparsers_for_config.add_parser('show', help='Show configuration (default: shows default config)')
+        parser_show.add_argument('config_file', nargs='?', default=None, help='Path to configuration file (optional)')
+
+        parser_set = subparsers_for_config.add_parser('set', help='Set default configuration file')
+        parser_set.add_argument('config_file', help='Path to configuration file')
 
         args = parser.parse_args()
         return cls(**{k: v for k, v in args.__dict__.items() if hasattr(cls, k)})
@@ -198,18 +204,25 @@ class Main:
     @classmethod
     def run_config(cls, args):
         """Handle config subcommands"""
-        config_path = args.config
         config_action = args.config_action
+
+        if config_action == ConfigCommand.SET:
+            # For 'set', use the config_file argument
+            return ConfigMain.set(args.config_file)
+        elif config_action == ConfigCommand.SHOW:
+            # For 'show', use config_file if provided, otherwise None (shows default)
+            return ConfigMain.show(getattr(args, 'config_file', None))
+
+        # For other commands, use the config path
+        config_path = args.config
 
         if config_action == ConfigCommand.EDIT:
             return ConfigMain.edit(config_path)
-        elif config_action == ConfigCommand.SHOW:
-            return ConfigMain.show(config_path)
         elif config_action == ConfigCommand.VALIDATE:
             return ConfigMain.validate(config_path)
         else:
             # Note: No logger available in config subcommands, fallback to print
-            print("Usage: drowcoder config {edit|show|validate}")
+            print("Usage: drowcoder config {edit|show|validate|set}")
             return 1
 
 

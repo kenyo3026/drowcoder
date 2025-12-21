@@ -57,9 +57,56 @@ class ConfigCommand:
     EDIT     :str = 'edit'
     SHOW     :str = 'show'
     VALIDATE :str = 'validate'
+    SET      :str = 'set'
 
 class ConfigMain:
     """Configuration management class"""
+
+    DEFAULT_CONFIG_MARKER = pathlib.Path.home() / '.drowcoder' / 'default_config.txt'
+
+    @staticmethod
+    def set(config_path: Union[str, pathlib.Path]):
+        """Set default configuration file"""
+        config_path = pathlib.Path(config_path).resolve()
+
+        # Validate config file exists
+        if not config_path.exists():
+            print(f"❌ Config file not found: {config_path}")
+            return 1
+
+        # Validate config file is valid
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config_data = yaml.safe_load(f)
+
+            if not isinstance(config_data, dict):
+                print("❌ Invalid config: Root must be a dictionary")
+                return 1
+
+            models = config_data.get('models', [])
+            if not isinstance(models, list) or len(models) == 0:
+                print("❌ Invalid config: Missing or empty 'models' section")
+                return 1
+
+            first_model = models[0]
+            if not first_model.get('model') or not first_model.get('api_key'):
+                print("❌ Invalid config: First model missing 'model' or 'api_key'")
+                return 1
+
+        except yaml.YAMLError as e:
+            print(f"❌ Invalid YAML syntax: {e}")
+            return 1
+        except Exception as e:
+            print(f"❌ Error reading config: {e}")
+            return 1
+
+        # Save to default config marker
+        ConfigMain.DEFAULT_CONFIG_MARKER.parent.mkdir(parents=True, exist_ok=True)
+        with open(ConfigMain.DEFAULT_CONFIG_MARKER, 'w', encoding='utf-8') as f:
+            f.write(str(config_path))
+
+        print(f"✅ Default config set to: {config_path}")
+        return 0
 
     @staticmethod
     def edit(config_path: Union[str, pathlib.Path]):
@@ -92,12 +139,34 @@ class ConfigMain:
             return 1
 
     @staticmethod
-    def show(config_path: Union[str, pathlib.Path]):
-        """Display current configuration"""
+    def show(config_path: Union[str, pathlib.Path, None] = None):
+        """Display configuration file content.
+
+        If no path provided, shows the default config:
+        1. User set default (~/.drowcoder/default_config.txt)
+        2. System default (~/.drowcoder/config.yaml)
+        """
+        # If no path provided, use default config
+        if config_path is None:
+            if ConfigMain.DEFAULT_CONFIG_MARKER.exists():
+                with open(ConfigMain.DEFAULT_CONFIG_MARKER, 'r', encoding='utf-8') as f:
+                    user_default = f.read().strip()
+
+                if user_default and pathlib.Path(user_default).exists():
+                    config_path = pathlib.Path(user_default)
+                    print(f"📌 Using user set default config:")
+                else:
+                    print(f"⚠️  User default config not found: {user_default}")
+                    print(f"Falling back to system default...")
+                    config_path = pathlib.Path.home() / '.drowcoder' / 'config.yaml'
+            else:
+                config_path = pathlib.Path.home() / '.drowcoder' / 'config.yaml'
+                print(f"📌 Using system default config:")
+
         config_path = pathlib.Path(config_path).resolve()
 
         if not config_path.exists():
-            print(f"Config file not found: {config_path}")
+            print(f"❌ Config file not found: {config_path}")
             return 1
 
         try:
@@ -109,7 +178,7 @@ class ConfigMain:
             print(content)
             return 0
         except Exception as e:
-            print(f"Error reading config file: {e}")
+            print(f"❌ Error reading config file: {e}")
             return 1
 
     @staticmethod

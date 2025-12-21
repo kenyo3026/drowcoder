@@ -14,27 +14,57 @@ from typing import Union, Type
 from .main import Main, MainArgs
 
 
-def setup_config(yaml_path: Union[str, pathlib.Path]):
-    yaml_path = pathlib.Path(yaml_path)
+def setup_config(yaml_paths: Union[str, pathlib.Path, list, None]):
+    """
+    Setup configuration for CLI mode.
 
-    # Ensure file exists
-    if not yaml_path.exists():
-        yaml_path.parent.mkdir(parents=True, exist_ok=True)
-        yaml_path.touch()
+    Priority:
+    1. -c parameter (yaml_paths) → return as-is for ConfigMorpher
+    2. User set default (~/.drowcoder/default_config.txt)
+    3. System default (~/.drowcoder/config.yaml) with first-time setup
 
-    # Read existing config
-    with open(yaml_path, 'r', encoding='utf-8') as f:
-        config = yaml.safe_load(f) or {}
+    Returns:
+        Config path(s) for ConfigMorpher (str, Path, or list)
+    """
+    # If user provided -c, use it directly (supports multi-config merging)
+    if yaml_paths:
+        return yaml_paths
 
-    # Check if config is valid
-    models = config.get('models', [])
-    if (isinstance(config, dict) and models and
-        isinstance(models, list) and len(models) > 0):
-        first_model = models[0]
-        if first_model.get('model') and first_model.get('api_key'):
-            return yaml_path.__str__()
+    # No -c provided, check user set default
+    default_config_marker = pathlib.Path.home() / '.drowcoder' / 'default_config.txt'
+    if default_config_marker.exists():
+        with open(default_config_marker, 'r', encoding='utf-8') as f:
+            user_default = f.read().strip()
 
-    # Config is invalid, prompt for new values
+        if user_default and pathlib.Path(user_default).exists():
+            return user_default
+
+    # Fall back to system default
+    default_config = pathlib.Path.home() / '.drowcoder' / 'config.yaml'
+
+    # If system default doesn't exist, create it
+    if not default_config.exists():
+        return _create_default_config(default_config)
+
+    return str(default_config)
+
+def _create_default_config(yaml_path: pathlib.Path) -> str:
+    """
+    Create a new configuration file with user input.
+
+    Args:
+        yaml_path: Path where the config file should be created
+
+    Returns:
+        String path to the created config file
+    """
+    # Ensure directory exists
+    yaml_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Prompt for model and API key
+    print(f"\n🔧 Setting up configuration at: {yaml_path}")
+    print("=" * 60)
+
     while True:
         model = input('Input a 🧠 model (should be litellm): ').strip()
         if model:
@@ -57,11 +87,13 @@ def setup_config(yaml_path: Union[str, pathlib.Path]):
     with open(yaml_path, 'w', encoding='utf-8') as f:
         yaml.dump(config, f, allow_unicode=True, sort_keys=False)
 
-    return yaml_path.__str__()
+    print(f"✅ Configuration saved to: {yaml_path}\n")
+
+    return str(yaml_path)
 
 @dataclass
 class CliArgs(MainArgs):
-    config          :str = str(pathlib.Path.home() / '.drowcoder' / 'config.yaml')
+    config          :Union[str, list] = None  # Will be set to default in __post_init__
     model           :str = None
     workspace       :str = None
     checkpoint      :str = None
