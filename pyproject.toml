@@ -12,7 +12,7 @@ license = {text = "GPL-3.0"}
 authors = [
     {name = "kenyo3026", email = "kenyo3026@gmail.com"}
 ]
-keywords = ["ai", "coding", "assistant", "agent", "cursor", "ide"]
+keywords = ["ai", "coding", "assistant", "agent", "cursor", "ide", "mcp", "model-context-protocol", "tool-dispatcher", "agentic"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -32,6 +32,7 @@ dependencies = [
     "litellm>=1.0.0",
     "pyyaml>=6.0",
     "rich>=13.0.0",
+    "mcp>=1.0.0",
     "config-morpher @ git+https://github.com/kenyo3026/configmorpher.git",
     "path-tree-graph @ git+https://github.com/kenyo3026/path-tree-graph.git",
 ]
@@ -73,7 +74,14 @@ where = ["src"]
 "" = "src"
 
 [tool.setuptools.package-data]
-drowcoder = ["tools/*.yaml"]
+drowcoder = [
+    "tools/tools/*.yaml",
+    "tools/tools/*.md",
+    "tools/mcps/*.json",
+    "tools/mcps/README.md",
+    "tools/README.md",
+    "tools/assets/*.png",
+]
 
 [tool.setuptools]
 include-package-data = true
