@@ -144,7 +144,6 @@ class MCPDispatcherConfigLoader:
 
         Raises:
             ValueError: If file extension is not supported
-            FileNotFoundError: If file does not exist
             yaml.YAMLError: If YAML file is invalid
             json.JSONDecodeError: If JSON file is invalid
         """
@@ -155,6 +154,12 @@ class MCPDispatcherConfigLoader:
             source_file = pathlib.Path(source_file).resolve()
 
         if not source_file.exists():
+            # Auto-create empty config file if it's the default mcps.json
+            if source_file.name == 'mcps.json' and source_file.parent == DEFAULT_MCP_CONFIG_ROOT:
+                source_file.parent.mkdir(parents=True, exist_ok=True)
+                with open(source_file, 'w', encoding='utf-8') as f:
+                    json.dump({}, f, indent=2)
+                return {}
             raise FileNotFoundError(f"Configuration file not found: {source_file}")
 
         if source_file.suffix in {".yaml", ".yml"}:
