@@ -303,6 +303,9 @@ class SearchTool(BaseTool):
         self._validate_initialized()
         dumping_kwargs = self._parse_dump_kwargs(locals())
 
+        # Initialize file_patterns for metadata (will be overridden in dir search)
+        file_patterns = EXT_PATTERNS_FOR_BASE_EXCLUDE
+
         try:
             # Handle cwd
             cwd = Path(cwd or os.getcwd()).expanduser().resolve()
@@ -463,7 +466,7 @@ class SearchTool(BaseTool):
                 metadata=SearchToolResponseMetadata(
                     path=path,
                     content_pattern=content_pattern,
-                    filepath_pattern=file_patterns,
+                    filepath_pattern=filepath_pattern,  # Use parameter instead of local variable
                 )
             ).dump(**dumping_kwargs)
 
