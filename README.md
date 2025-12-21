@@ -212,7 +212,7 @@ python -m src.drowcoder.develop
   - [Tool Dispatcher Architecture](src/drowcoder/tools/README.md) - Unified tool system overview
   - [Built-in Tools](src/drowcoder/tools/tools/) - Individual tool documentation
   - [MCP Integration](src/drowcoder/tools/mcps/README.md) - MCP server integration guide
-- 💡 **Check Examples**: See [examples/](examples/) directory
+- 💡 **Check Examples**: See [examples](examples/) directory
 - 🔧 **Development**: See [Development](#-development) section above
 
 ## 📄 License
