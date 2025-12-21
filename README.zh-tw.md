@@ -1,6 +1,9 @@
 # Drowcoder
 
-一個專注於程式設計的 AI 助手 🤖，支援統一整合的內建 tools 和 MCP（Model Context Protocol）
+Drowcoder 是一個通用的 AI 代理機器人 🤖，當前指任為一位專注於程式設計與開發的工程師
+
+> [!TIP]
+> 雖然掛職為工程師，但你問他一般問題或掛載各式功能的 MCPs，他也是能勝任的喔。
 
 > [!NOTE]
 > 此專案目前正在持續開發中。功能和 API 可能會頻繁變更。
