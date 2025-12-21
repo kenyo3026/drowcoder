@@ -49,16 +49,16 @@ flowchart LR
     CLI --> Main
     Main --> Agent
     Agent <--> Dispatcher
-    
+
     Dispatcher <--> ToolDispatcher
     Dispatcher <--> MCPDispatcher
-    
+
     ToolDispatcher <--> Tools
     ToolDispatcher <--> CustomTools
-    
+
     MCPDispatcher <--> HTTP
     MCPDispatcher <--> Stdio
-    
+
     HTTP -.->|"HTTP<br/>Transport"| Server1
     HTTP -.->|"HTTP<br/>Transport"| Server2
     Stdio -.->|"Stdio<br/>Transport"| Servern
@@ -86,13 +86,13 @@ The MCP configuration format follows the **[Cursor MCP configuration standard](h
 ```json
 {
     "mcps": {
-        "server_name": {
+        "server_name (streamable http)": {
             "url": "https://mcp-server.example.com",
             "headers": {
                 "Authorization": "Bearer token"
             }
         },
-        "stdio_server": {
+        "server_name (stdio)": {
             "command": "npx",
             "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/allowed/files"],
             "env": {
@@ -107,11 +107,11 @@ The MCP configuration format follows the **[Cursor MCP configuration standard](h
 
 ```yaml
 mcps:
-  server_name:
+  server_name (streamable http):
     url: "https://mcp-server.example.com"
     headers:
       Authorization: "Bearer token"
-  stdio_server:
+  server_name (stdio):
     command: "npx"
     args:
       - "-y"
