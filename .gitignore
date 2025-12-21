@@ -31,7 +31,7 @@ configs/*
 logs/*
 materials/*
 scripts/
-**/tools/reports/*
+**/reports/*
 
 # test files
 test_*.py
