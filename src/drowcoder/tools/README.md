@@ -25,13 +25,13 @@ flowchart LR
         Dispatcher["Dispatcher<br/>━━━━━━<br/>expose_descs()<br/>expose_funcs()"]
     end
 
-    subgraph ToolCurator["🔧 Tools"]
+    subgraph ToolCurator["🔧 Tool Curator"]
         ToolDispatcher["Tool Dispatcher<br/>━━━━━━<br/>Config Loader<br/>Tool Registry"]
         Tools["Built-in Tools<br/>━━━━━━<br/>• load<br/>• search<br/>• search_and_replace<br/>• write<br/>• bash<br/>• todo<br/>• attempt_completion"]
         CustomTools["Custom Tools<br/>━━━━━━<br/>Extend via BaseTool"]
     end
 
-    subgraph MCPCurator["🌐 MCPs"]
+    subgraph MCPCurator["🌐 MCP Curator"]
         MCPDispatcher["MCP Dispatcher<br/>━━━━━━<br/>Config Loader<br/>MCP Registry<br/>Parallel Init"]
 
         subgraph Clients["MCP Clients"]
