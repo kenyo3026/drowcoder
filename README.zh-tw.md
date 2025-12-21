@@ -2,7 +2,17 @@
 
 > ⚠️ **開發狀態**：此專案目前處於早期開發階段。功能和 API 可能會大幅變更。
 
-一個功能強大的 AI 代理工具，具有豐富的工具集和靈活的配置選項。
+專為 Cursor IDE 設計的 AI 程式設計助手框架，具有統一的工具調度架構，整合內建工具和 MCP（Model Context Protocol）支援。
+
+## ✨ 核心特色
+
+- **🔧 豐富的內建工具**：7 個必備程式設計工具（load、search、search_and_replace、write、bash、todo、attempt_completion）
+- **🌐 MCP 整合**：支援 Streamable HTTP 和 Stdio 兩種傳輸協議
+- **🔀 統一調度器**：無縫整合內建工具和 MCP 伺服器
+- **📦 可擴展性**：透過繼承 `BaseTool` 輕鬆添加自訂工具
+- **💾 檢查點系統**：跨會話的持久狀態管理
+- **⚙️ 靈活配置**：基於 YAML 的配置，支援角色型模型管理
+- **🚀 多種進入點**：CLI、開發模式和函式庫使用
 
 ## 🚀 安裝
 
@@ -61,17 +71,26 @@ drowcoder --config /path/to/config.yaml
 ### 函式庫使用
 
 ```python
-from drowcoder import DrowAgent, AgentRole
+from drowcoder import DrowAgent
 
-# 建立代理
-agent = DrowAgent(role=AgentRole.CODER)
+# 使用配置建立代理
+agent = DrowAgent(
+    workspace="/path/to/project",
+    tools=None,  # 使用預設內建工具
+    mcps=None,   # 可選：MCP 伺服器配置
+    model="gpt-4",
+    api_key="your-api-key"
+)
 
-# 初始化
-agent.initialize()
+# 初始化代理
+agent.init()
 
-# 使用代理
-response = agent.process("您的指令")
+# 處理使用者查詢
+agent.receive("您的指令")
+agent.complete()
 ```
+
+> **注意**：詳細的 API 使用方式請參閱 [examples/basic_usage.py](examples/basic_usage.py)
 
 ## 📚 文件
 
@@ -90,16 +109,19 @@ response = agent.process("您的指令")
 - **[模型](src/drowcoder/docs/model.md)** - 模型分發器和角色管理
 - **[詳細輸出](src/drowcoder/docs/verbose.md)** - 訊息輸出格式化系統
 
-### 工具
+### 工具與架構
 
-- **[基礎工具](src/drowcoder/tools/base.md)** - 工具架構和基礎類別
-- **[嘗試完成](src/drowcoder/tools/attempt-completion.md)** - 任務完成信號
-- **[Bash](src/drowcoder/tools/bash.md)** - 命令執行
-- **[載入](src/drowcoder/tools/load.md)** - 檔案載入
-- **[搜尋](src/drowcoder/tools/search.md)** - 內容搜尋
-- **[搜尋與替換](src/drowcoder/tools/search-and-replace.md)** - 文字替換
-- **[待辦事項](src/drowcoder/tools/todo.md)** - 任務管理
-- **[寫入](src/drowcoder/tools/write.md)** - 檔案寫入
+- **[工具調度器架構](src/drowcoder/tools/README.md)** - 統一調度系統概述
+- **[基礎工具](src/drowcoder/tools/tools/base.md)** - 工具架構和基礎類別
+- **內建工具**：
+  - **[載入](src/drowcoder/tools/tools/load.md)** - 檔案載入
+  - **[搜尋](src/drowcoder/tools/tools/search.md)** - 內容搜尋
+  - **[搜尋與替換](src/drowcoder/tools/tools/search-and-replace.md)** - 文字替換
+  - **[寫入](src/drowcoder/tools/tools/write.md)** - 檔案寫入
+  - **[Bash](src/drowcoder/tools/tools/bash.md)** - 命令執行
+  - **[待辦事項](src/drowcoder/tools/tools/todo.md)** - 任務管理
+  - **[嘗試完成](src/drowcoder/tools/tools/attempt-completion.md)** - 任務完成信號
+- **[MCP 整合](src/drowcoder/tools/mcps/README.md)** - Model Context Protocol 支援
 
 ## 🏗️ 專案結構
 
@@ -111,21 +133,47 @@ drowcoder/
 │   ├── develop.py         # 開發環境 CLI
 │   ├── debug.py           # 除錯模式
 │   ├── agent.py           # AI 代理核心
+│   ├── checkpoint.py      # 檢查點管理
+│   ├── config.py          # 配置載入器
+│   ├── model.py           # 模型分發器
+│   ├── verbose.py         # 輸出格式化
 │   ├── docs/              # 模組文件
-│   │   ├── agent.md       # 代理進入腳本
-│   │   ├── checkpoint.md  # 檢查點系統
-│   │   ├── config.md      # 配置管理
 │   │   ├── main.md        # 進入點
+│   │   ├── agent.md       # 代理系統
+│   │   ├── checkpoint.md  # 檢查點系統
+│   │   ├── config.md      # 配置
 │   │   ├── model.md       # 模型分發器
 │   │   └── verbose.md     # 輸出格式化
-│   ├── tools/             # 工具集合
-│   │   ├── *.md           # 個別工具文件
-│   │   └── *.py           # 工具實作
-│   └── prompts/           # 系統提示
+│   ├── tools/             # 工具系統
+│   │   ├── README.md      # 工具架構概述
+│   │   ├── dispatcher.py  # 統一調度器
+│   │   ├── runtime.py     # 工具執行環境
+│   │   ├── tools/         # 內建工具
+│   │   │   ├── base.py    # 基礎工具類別
+│   │   │   ├── dispatcher.py  # 工具調度器
+│   │   │   ├── *.py       # 工具實作
+│   │   │   ├── *.yaml     # 工具配置
+│   │   │   ├── *.md       # 工具文件
+│   │   │   ├── tests/     # 工具測試
+│   │   │   └── utils/     # 工具工具程式
+│   │   └── mcps/          # MCP 整合
+│   │       ├── README.md  # MCP 文件
+│   │       ├── base.py    # MCP 基礎客戶端
+│   │       ├── dispatcher.py  # MCP 調度器
+│   │       ├── streamable_http.py  # HTTP 傳輸
+│   │       ├── stdio.py   # Stdio 傳輸
+│   │       └── utils.py   # MCP 工具程式
+│   ├── prompts/           # 系統提示
+│   │   └── system.py      # 系統提示模板
+│   └── utils/             # 工具程式
+│       ├── logger.py      # 日誌工具
+│       ├── mixin.py       # Mixin 類別
+│       └── unique_id.py   # ID 生成
 ├── docs/                  # 使用者文件
 │   └── usage.md           # 使用指南
 ├── examples/              # 使用範例
-├── configs/               # 配置檔案
+│   └── basic_usage.py     # 基本範例
+├── scripts/               # 工具腳本
 ├── checkpoints/           # 檢查點（開發用）
 └── pyproject.toml         # 套件配置
 ```
@@ -161,7 +209,9 @@ python -m src.drowcoder.develop
 - 📖 **文件**：
   - [使用者指南](docs/usage.md) - 入門和使用指南
   - [核心模組](src/drowcoder/docs/) - 核心模組的技術文件
-  - [工具](src/drowcoder/tools/) - 個別工具文件
+  - [工具調度器架構](src/drowcoder/tools/README.md) - 統一工具系統概述
+  - [內建工具](src/drowcoder/tools/tools/) - 個別工具文件
+  - [MCP 整合](src/drowcoder/tools/mcps/README.md) - MCP 伺服器整合指南
 - 💡 **查看範例**：參閱 [examples/](examples/) 目錄
 - 🔧 **開發**：參閱上方的 [開發](#-開發) 章節
 

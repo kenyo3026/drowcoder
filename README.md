@@ -2,7 +2,17 @@
 
 > ⚠️ **Development Status**: This project is currently in early development. Features and APIs may change significantly.
 
-A powerful AI agent tool with rich toolsets and flexible configuration options.
+An agentic AI coding assistant framework designed for Cursor IDE, featuring a unified tool dispatcher architecture with built-in tools and MCP (Model Context Protocol) integration.
+
+## ✨ Key Features
+
+- **🔧 Rich Built-in Tools**: 7 essential coding tools (load, search, search_and_replace, write, bash, todo, attempt_completion)
+- **🌐 MCP Integration**: Support for both Streamable HTTP and Stdio transports
+- **🔀 Unified Dispatcher**: Seamless integration of built-in tools and MCP servers
+- **📦 Extensible**: Easy to add custom tools by extending `BaseTool`
+- **💾 Checkpoint System**: Persistent state management across sessions
+- **⚙️ Flexible Configuration**: YAML-based configuration with role-based model management
+- **🚀 Multiple Entry Points**: CLI, development mode, and library usage
 
 ## 🚀 Installation
 
@@ -61,17 +71,26 @@ drowcoder --config /path/to/config.yaml
 ### Library Usage
 
 ```python
-from drowcoder import DrowAgent, AgentRole
+from drowcoder import DrowAgent
 
-# Create agent
-agent = DrowAgent(role=AgentRole.CODER)
+# Create agent with configuration
+agent = DrowAgent(
+    workspace="/path/to/project",
+    tools=None,  # Use default built-in tools
+    mcps=None,   # Optional: MCP server configs
+    model="gpt-4",
+    api_key="your-api-key"
+)
 
-# Initialize
-agent.initialize()
+# Initialize agent
+agent.init()
 
-# Use agent
-response = agent.process("Your instruction")
+# Process user query
+agent.receive("Your instruction")
+agent.complete()
 ```
+
+> **Note**: For detailed API usage, see [examples/basic_usage.py](examples/basic_usage.py)
 
 ## 📚 Documentation
 
@@ -90,16 +109,19 @@ response = agent.process("Your instruction")
 - **[Model](src/drowcoder/docs/model.md)** - Model dispatcher and role management
 - **[Verbose](src/drowcoder/docs/verbose.md)** - Message output formatting system
 
-### Tools
+### Tools & Architecture
 
-- **[Base Tool](src/drowcoder/tools/base.md)** - Tool architecture and base classes
-- **[Attempt Completion](src/drowcoder/tools/attempt-completion.md)** - Task completion signaling
-- **[Bash](src/drowcoder/tools/bash.md)** - Command execution
-- **[Load](src/drowcoder/tools/load.md)** - File loading
-- **[Search](src/drowcoder/tools/search.md)** - Content searching
-- **[Search and Replace](src/drowcoder/tools/search-and-replace.md)** - Text replacement
-- **[Todo](src/drowcoder/tools/todo.md)** - Task management
-- **[Write](src/drowcoder/tools/write.md)** - File writing
+- **[Tool Dispatcher Architecture](src/drowcoder/tools/README.md)** - Unified dispatcher system overview
+- **[Base Tool](src/drowcoder/tools/tools/base.md)** - Tool architecture and base classes
+- **Built-in Tools**:
+  - **[Load](src/drowcoder/tools/tools/load.md)** - File loading
+  - **[Search](src/drowcoder/tools/tools/search.md)** - Content searching
+  - **[Search and Replace](src/drowcoder/tools/tools/search-and-replace.md)** - Text replacement
+  - **[Write](src/drowcoder/tools/tools/write.md)** - File writing
+  - **[Bash](src/drowcoder/tools/tools/bash.md)** - Command execution
+  - **[Todo](src/drowcoder/tools/tools/todo.md)** - Task management
+  - **[Attempt Completion](src/drowcoder/tools/tools/attempt-completion.md)** - Task completion signaling
+- **[MCP Integration](src/drowcoder/tools/mcps/README.md)** - Model Context Protocol support
 
 ## 🏗️ Project Structure
 
@@ -111,21 +133,47 @@ drowcoder/
 │   ├── develop.py         # Development CLI
 │   ├── debug.py           # Debug mode
 │   ├── agent.py           # AI agent core
+│   ├── checkpoint.py      # Checkpoint management
+│   ├── config.py          # Configuration loader
+│   ├── model.py           # Model dispatcher
+│   ├── verbose.py         # Output formatting
 │   ├── docs/              # Module documentation
-│   │   ├── agent.md       # Agent entry script
-│   │   ├── checkpoint.md  # Checkpoint system
-│   │   ├── config.md      # Configuration management
 │   │   ├── main.md        # Entry points
+│   │   ├── agent.md       # Agent system
+│   │   ├── checkpoint.md  # Checkpoint system
+│   │   ├── config.md      # Configuration
 │   │   ├── model.md       # Model dispatcher
 │   │   └── verbose.md     # Output formatting
-│   ├── tools/             # Tool collection
-│   │   ├── *.md           # Individual tool docs
-│   │   └── *.py           # Tool implementations
-│   └── prompts/           # System prompts
+│   ├── tools/             # Tool system
+│   │   ├── README.md      # Tool architecture overview
+│   │   ├── dispatcher.py  # Unified dispatcher
+│   │   ├── runtime.py     # Tool runtime
+│   │   ├── tools/         # Built-in tools
+│   │   │   ├── base.py    # Base tool class
+│   │   │   ├── dispatcher.py  # Tool dispatcher
+│   │   │   ├── *.py       # Tool implementations
+│   │   │   ├── *.yaml     # Tool configurations
+│   │   │   ├── *.md       # Tool documentation
+│   │   │   ├── tests/     # Tool tests
+│   │   │   └── utils/     # Tool utilities
+│   │   └── mcps/          # MCP integration
+│   │       ├── README.md  # MCP documentation
+│   │       ├── base.py    # MCP base client
+│   │       ├── dispatcher.py  # MCP dispatcher
+│   │       ├── streamable_http.py  # HTTP transport
+│   │       ├── stdio.py   # Stdio transport
+│   │       └── utils.py   # MCP utilities
+│   ├── prompts/           # System prompts
+│   │   └── system.py      # System prompt templates
+│   └── utils/             # Utilities
+│       ├── logger.py      # Logging utilities
+│       ├── mixin.py       # Mixin classes
+│       └── unique_id.py   # ID generation
 ├── docs/                  # User documentation
 │   └── usage.md           # Usage guide
 ├── examples/              # Usage examples
-├── configs/               # Configuration files
+│   └── basic_usage.py     # Basic example
+├── scripts/               # Utility scripts
 ├── checkpoints/           # Checkpoints (development)
 └── pyproject.toml         # Package configuration
 ```
@@ -161,7 +209,9 @@ python -m src.drowcoder.develop
 - 📖 **Documentation**:
   - [User Guide](docs/usage.md) - Getting started and usage guide
   - [Core Modules](src/drowcoder/docs/) - Technical documentation for core modules
-  - [Tools](src/drowcoder/tools/) - Individual tool documentation
+  - [Tool Dispatcher Architecture](src/drowcoder/tools/README.md) - Unified tool system overview
+  - [Built-in Tools](src/drowcoder/tools/tools/) - Individual tool documentation
+  - [MCP Integration](src/drowcoder/tools/mcps/README.md) - MCP server integration guide
 - 💡 **Check Examples**: See [examples/](examples/) directory
 - 🔧 **Development**: See [Development](#-development) section above
 
