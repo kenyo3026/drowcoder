@@ -1,6 +1,6 @@
 # Tools Tests
 
-This directory contains unit tests for all drowcoder tools (both original and refactored versions).
+This directory contains unit tests for all drowcoder built-in tools.
 
 ## Directory Structure
 
@@ -23,83 +23,48 @@ tests/
 
 ## Running Tests
 
-### 🎯 Method 1: Direct test execution with module selection (Recommended)
+### 🎯 Method 1: Using pytest (Recommended)
 
-Run tests for specific tool versions using `--module` parameter:
+Run tests using pytest:
 
 ```bash
-# Test original tools
-python -m src.drowcoder.tools.tests.test_load --module load
-python -m src.drowcoder.tools.tests.test_attempt_completion --module attempt_completion
-python -m src.drowcoder.tools.tests.test_todo --module todo
-python -m src.drowcoder.tools.tests.test_write --module write
-python -m src.drowcoder.tools.tests.test_search --module search
-python -m src.drowcoder.tools.tests.test_search_and_replace --module search_and_replace
-python -m src.drowcoder.tools.tests.test_bash --module bash
+# Run all tool tests
+pytest src/drowcoder/tools/tools/tests/ -v
 
-# Test refactored tools
-python -m src.drowcoder.tools.tests.test_load --module load_refactor
-python -m src.drowcoder.tools.tests.test_attempt_completion --module attempt_completion_refactor
-python -m src.drowcoder.tools.tests.test_todo --module todo_refactor
-python -m src.drowcoder.tools.tests.test_write --module write_refactor
-python -m src.drowcoder.tools.tests.test_search --module search_refactor
-python -m src.drowcoder.tools.tests.test_search_and_replace --module search_and_replace_refactor
+# Run specific tool tests
+pytest src/drowcoder/tools/tools/tests/test_load.py -v
+pytest src/drowcoder/tools/tools/tests/test_write.py -v
+pytest src/drowcoder/tools/tools/tests/test_bash.py -v
+pytest src/drowcoder/tools/tools/tests/test_search.py -v
+pytest src/drowcoder/tools/tools/tests/test_search_and_replace.py -v
+pytest src/drowcoder/tools/tools/tests/test_todo.py -v
+pytest src/drowcoder/tools/tools/tests/test_attempt_completion.py -v
+
+# Run with coverage
+pytest src/drowcoder/tools/tools/tests/ -v --cov=src/drowcoder/tools/tools --cov-report=html
+```
+
+### 🔬 Method 2: Direct test execution with auto-report
+
+Run tests directly to generate git-aware reports:
+
+```bash
+# Run individual tool tests with automatic report generation
+python -m src.drowcoder.tools.tools.tests.test_load
+python -m src.drowcoder.tools.tools.tests.test_write
+python -m src.drowcoder.tools.tools.tests.test_bash
+python -m src.drowcoder.tools.tools.tests.test_search
+python -m src.drowcoder.tools.tools.tests.test_search_and_replace
+python -m src.drowcoder.tools.tools.tests.test_todo
+python -m src.drowcoder.tools.tools.tests.test_attempt_completion
 ```
 
 **Features:**
 - ✅ Automatic report generation with git-aware naming
-- ✅ Module selection: test original vs refactored versions
-- ✅ Clean interface: `--module load` → `report_load_{sha}_[dirty].log`
+- ✅ Clean interface: generates `report_{tool}_{sha}_[dirty].log`
 - ✅ Based on `base.py` for consistent formatting
-- ✅ Supports relative imports (no IDE warnings)
+- ✅ Reports saved to `reports/` directory
 
-### 🔬 Method 2: pytest with environment variable
-
-Run tests using pytest with environment variable to select module:
-
-```bash
-# Test original tools
-TEST_LOAD_MODULE=load pytest src/drowcoder/tools/tests/test_load.py -v
-TEST_BASH_MODULE=bash pytest src/drowcoder/tools/tests/test_bash.py -v
-
-# Test refactored tools
-TEST_LOAD_MODULE=load_refactor pytest src/drowcoder/tools/tests/test_load.py -v
-```
-
-**Environment variable naming:**
-- `TEST_LOAD_MODULE` - for load tool tests
-- `TEST_TODO_MODULE` - for todo tool tests
-- `TEST_BASH_MODULE` - for bash tool tests
-- `TEST_SAR_MODULE` - for search_and_replace tool tests
-- `TEST_SEARCH_MODULE` - for search tool tests
-- (write and attempt_completion use `TEST_MODULE`)
-
-### 🧪 Standard pytest options
-
-```bash
-# Run all tests (no auto-report)
-pytest src/drowcoder/tools/tests/ -v --no-cov
-
-# Run specific tool tests
-pytest src/drowcoder/tools/tests/test_load.py -v
-pytest src/drowcoder/tools/tests/test_write.py -v
-pytest src/drowcoder/tools/tests/test_bash.py -v
-```
-
-## Test Coverage
-
-Currently tested tools:
-- ✅ `attempt_completion` - 31 tests
-- ✅ `load` - 34 tests
-- ✅ `todo` - 29 tests
-- ✅ `write` - 48 tests
-- ✅ `search` - 38 tests
-- ✅ `search_and_replace` - 32 tests
-- ✅ `bash` - 29 tests
-
-Total: **~240+ tests**, all passing ✅
-
-**Note:** Some tests may be skipped for original versions if they test BaseTool-specific features (logger, callback) that are only available in refactored versions.
 
 ## Test Categories
 
@@ -108,11 +73,9 @@ Each tool test file includes:
 2. **Edge case tests** - Boundary conditions and special cases
 3. **Unicode tests** - International character support
 4. **Error handling tests** - Error conditions and exceptions
-5. **Tool class interface tests** - BaseTool interface validation (refactored versions)
+5. **Tool class interface tests** - BaseTool interface validation
 6. **Parametrized tests** - Multiple inputs tested efficiently
 7. **Output format tests** - Different output styles and formats
-
-**Important:** Test files are designed to work with both original and refactored versions. They dynamically import the appropriate module based on environment variables or command-line arguments.
 
 ## Key Files
 
@@ -131,22 +94,42 @@ Pytest configuration file:
 
 ## Requirements
 
+### Installation
+
+The test dependencies are already configured in `pyproject.toml`. Install them using one of the following methods:
+
+**Method 1: Install test dependencies (Recommended)**
 ```bash
-pip install pytest pytest-cov
+pip install -e ".[test]"
 ```
+
+**Method 2: Install all development dependencies**
+```bash
+pip install -e ".[dev]"
+```
+
+**Method 3: Install from requirements.txt**
+```bash
+pip install -r requirements.txt
+```
+
+### Dependencies
+- pytest>=7.0.0
+- pytest-cov>=4.0.0
+- pytest-mock>=3.0.0 (optional, for advanced mocking)
 
 ## Testing Strategy
 
-All test files support testing both original and refactored versions:
+All test files follow a unified testing approach:
 
-1. **Dynamic module loading** - Tests import the appropriate module based on environment variables
-2. **Identical test cases** - Same tests run against both versions to ensure functional equivalence
-3. **BaseTool-aware** - Tests detect if tool supports BaseTool features (logger, callback) and skip gracefully
-4. **Automatic reporting** - Git-aware test reports generated automatically
+1. **Direct imports** - Tests import tools directly from `drowcoder.tools.tools`
+2. **Comprehensive coverage** - Each tool has extensive test coverage for all features
+3. **BaseTool interface** - All tools implement the unified BaseTool interface
+4. **Automatic reporting** - Git-aware test reports generated automatically when running directly
 
 ## Notes
 
 - Test reports are saved to `reports/` directory with git commit SHA and dirty status
-- Original tool versions may skip some BaseTool-specific tests
-- All refactored tools maintain 100% functional compatibility with original versions
+- All tools implement the unified BaseTool architecture
+- Tests validate both functionality and BaseTool interface compliance
 

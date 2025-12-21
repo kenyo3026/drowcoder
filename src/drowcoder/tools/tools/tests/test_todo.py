@@ -12,11 +12,11 @@ Tests cover:
 - Performance benchmarks
 
 Usage:
-    # Test original todo tool
-    python -m src.drowcoder.tools.tests.test_todo --module todo
+    # Run tests
+    pytest src/drowcoder/tools/tools/tests/test_todo.py -v
 
-    # Test refactored todo tool
-    python -m src.drowcoder.tools.tests.test_todo --module todo_refactor
+    # Or with direct execution
+    python -m src.drowcoder.tools.tools.tests.test_todo
 """
 
 import pytest
@@ -26,26 +26,19 @@ import tempfile
 import json
 import time
 from pathlib import Path
-import importlib
 
 # Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent.parent))
 
-# Get module name from environment variable or use default
-TEST_MODULE = os.environ.get('TEST_TODO_MODULE', 'todo')
-
-# Dynamically import the specified module
-todo_module = importlib.import_module(f'drowcoder.tools.{TEST_MODULE}')
-TodoTool = getattr(todo_module, 'TodoTool', None)
-TodoToolResponse = getattr(todo_module, 'TodoToolResponse', None)
-TodoItem = todo_module.TodoItem
-TodoStatusType = todo_module.TodoStatusType
+# Import from current unified tool structure
+from drowcoder.tools.tools.todo import TodoTool, TodoToolResponse, TodoItem, TodoStatusType
 
 # Helper functions to maintain test compatibility
 def update_todos(merge, todos, checkpoint_path):
     """Wrapper function for testing - creates tool instance and calls execute"""
     tool = TodoTool(checkpoint=checkpoint_path)
-    result = tool.execute(merge=merge, todos=todos)
+    from drowcoder.tools.tools.base import ToolResponseType
+    result = tool.execute(merge=merge, todos=todos, as_type=ToolResponseType.INTACT)
     if not result.success:
         if isinstance(result.error, str) and 'Invalid' in result.error:
             raise ValueError(result.error)
@@ -389,8 +382,9 @@ class TestTodoFileOperations:
         """Test getting todos from non-existent file."""
         nonexistent_path = Path("/tmp/nonexistent_todos_12345.json")
 
-        with pytest.raises(FileNotFoundError):
-            get_todos(nonexistent_path)
+        # get_todos returns empty list for nonexistent file
+        result = get_todos(nonexistent_path)
+        assert result == []
 
     def test_file_persistence(self, tmp_checkpoint):
         """Test todos persist across operations."""
@@ -416,20 +410,21 @@ class TestTodoToolClass:
     @pytest.mark.skipif(TodoTool is None, reason="TodoTool not available in this module")
     def test_tool_initialization(self, tmp_checkpoint):
         """Test tool can be initialized."""
-        tool = TodoTool(checkpoint_path=tmp_checkpoint)
+        tool = TodoTool(checkpoint=tmp_checkpoint)
         assert tool is not None
         assert tool._initialized is True
 
     @pytest.mark.skipif(TodoTool is None, reason="TodoTool not available in this module")
     def test_tool_execute_returns_result(self, tmp_checkpoint):
         """Test tool execute returns TodoToolResponse."""
-        tool = TodoTool(checkpoint_path=tmp_checkpoint)
+        tool = TodoTool(checkpoint=tmp_checkpoint)
         todos = [
             {'id': 'task1', 'content': 'Task 1', 'status': 'pending'},
             {'id': 'task2', 'content': 'Task 2', 'status': 'pending'}
         ]
 
-        result = tool.execute(merge=False, todos=todos)
+        from drowcoder.tools.tools.base import ToolResponseType
+        result = tool.execute(merge=False, todos=todos, as_type=ToolResponseType.INTACT)
 
         assert isinstance(result, TodoToolResponse)
         assert result.success is True
@@ -440,26 +435,28 @@ class TestTodoToolClass:
         import logging
         logger = logging.getLogger("test")
 
-        tool = TodoTool(checkpoint_path=tmp_checkpoint, logger=logger)
+        tool = TodoTool(checkpoint=tmp_checkpoint, logger=logger)
         todos = [
             {'id': 'task1', 'content': 'Task 1', 'status': 'pending'},
             {'id': 'task2', 'content': 'Task 2', 'status': 'pending'}
         ]
-        result = tool.execute(merge=False, todos=todos)
+        from drowcoder.tools.tools.base import ToolResponseType
+        result = tool.execute(merge=False, todos=todos, as_type=ToolResponseType.INTACT)
 
         assert result.success is True
 
     @pytest.mark.skipif(TodoTool is None, reason="TodoTool not available in this module")
     def test_tool_get_todos(self, tmp_checkpoint):
         """Test tool returns todos in response."""
-        tool = TodoTool(checkpoint_path=tmp_checkpoint)
+        tool = TodoTool(checkpoint=tmp_checkpoint)
 
         # Create todos
         todos = [
             {'id': 'task1', 'content': 'Task 1', 'status': 'pending'},
             {'id': 'task2', 'content': 'Task 2', 'status': 'pending'}
         ]
-        result = tool.execute(merge=False, todos=todos)
+        from drowcoder.tools.tools.base import ToolResponseType
+        result = tool.execute(merge=False, todos=todos, as_type=ToolResponseType.INTACT)
 
         # Check todos in response
         assert result.success is True
@@ -469,17 +466,22 @@ class TestTodoToolClass:
     @pytest.mark.skipif(TodoTool is None, reason="TodoTool not available in this module")
     def test_tool_update_status(self, tmp_checkpoint):
         """Test tool update_todo_status method."""
-        tool = TodoTool(checkpoint_path=tmp_checkpoint)
+        tool = TodoTool(checkpoint=tmp_checkpoint)
 
         # Create todos
         todos = [
             {'id': 'task1', 'content': 'Task 1', 'status': 'pending'},
             {'id': 'task2', 'content': 'Task 2', 'status': 'pending'}
         ]
-        tool.execute(merge=False, todos=todos)
+        from drowcoder.tools.tools.base import ToolResponseType
+        tool.execute(merge=False, todos=todos, as_type=ToolResponseType.INTACT)
 
-        # Update status
-        result = tool.update_todo_status(todo_id='task1', status_to='completed')
+        # Update status using merge (need at least 2 todos)
+        updated_todos = [
+            {'id': 'task1', 'content': 'Task 1', 'status': 'completed'},
+            {'id': 'task2', 'content': 'Task 2', 'status': 'pending'}
+        ]
+        result = tool.execute(merge=True, todos=updated_todos, as_type=ToolResponseType.INTACT)
         assert result.success is True
 
 
@@ -497,7 +499,7 @@ class TestTodoPerformance:
         update_todos(merge=False, todos=todos, checkpoint_path=tmp_checkpoint)
         elapsed = time.time() - start
 
-        print(f"\n[{TEST_MODULE}] Create 100 todos: {elapsed:.4f}s")
+        print(f"\n[todo] Create 100 todos: {elapsed:.4f}s")
         assert elapsed < 1.0  # Should complete within 1 second
 
     def test_read_performance(self, tmp_checkpoint):
@@ -515,7 +517,7 @@ class TestTodoPerformance:
             get_todos(tmp_checkpoint)
         elapsed = time.time() - start
 
-        print(f"\n[{TEST_MODULE}] Read 100 todos x 100 times: {elapsed:.4f}s")
+        print(f"\n[todo] Read 100 todos x 100 times: {elapsed:.4f}s")
         assert elapsed < 2.0  # Should complete within 2 seconds
 
     def test_merge_performance(self, tmp_checkpoint):
@@ -537,7 +539,7 @@ class TestTodoPerformance:
         update_todos(merge=True, todos=new_todos, checkpoint_path=tmp_checkpoint)
         elapsed = time.time() - start
 
-        print(f"\n[{TEST_MODULE}] Merge 50 todos: {elapsed:.4f}s")
+        print(f"\n[todo] Merge 50 todos: {elapsed:.4f}s")
         assert elapsed < 1.0
 
 

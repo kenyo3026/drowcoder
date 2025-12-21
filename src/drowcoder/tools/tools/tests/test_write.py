@@ -12,11 +12,11 @@ Tests cover:
 - Tool class interface
 
 Usage:
-    # Test original write tool
-    python -m src.drowcoder.tools.tests.test_write
+    # Run tests
+    pytest src/drowcoder/tools/tools/tests/test_write.py -v
 
-    # Test refactored write tool
-    python -m src.drowcoder.tools.tests.test_write --module write_refactor
+    # Or with direct execution
+    python -m src.drowcoder.tools.tools.tests.test_write
 """
 
 import pytest
@@ -24,23 +24,18 @@ import sys
 import os
 import tempfile
 from pathlib import Path
-import importlib
 
 # Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent.parent))
 
-# Get module name from environment variable or use default
-TEST_MODULE = os.environ.get('TEST_WRITE_MODULE', 'write')
-
-# Dynamically import the specified module
-write_module = importlib.import_module(f'drowcoder.tools.{TEST_MODULE}')
-WriteTool = getattr(write_module, 'WriteTool', None)
-WriteToolResponse = getattr(write_module, 'WriteToolResponse', None)
+# Import from current unified tool structure
+from drowcoder.tools.tools.write import WriteTool, WriteToolResponse
 
 # Helper function to maintain test compatibility
 def write(file_path, content, mode="apply", output_style="default", operation="overwrite", output_file=None, **kwargs):
     """Wrapper function for testing - creates tool instance and calls execute"""
     tool = WriteTool()
+    from drowcoder.tools.tools.base import ToolResponseType
     return tool.execute(
         file_path=file_path,
         content=content,
@@ -48,6 +43,7 @@ def write(file_path, content, mode="apply", output_style="default", operation="o
         output_style=output_style,
         operation=operation,
         output_file=output_file,
+        as_type=ToolResponseType.INTACT,
         **kwargs
     )
 
@@ -295,8 +291,10 @@ class TestWriteErrors:
         """Test that invalid mode raises ValueError."""
         test_file = tmp_path / "test.txt"
 
-        with pytest.raises(ValueError, match="Invalid mode"):
-            write(str(test_file), "content", mode="invalid_mode")
+        # Invalid mode should result in error response, not raise exception
+        result = write(str(test_file), "content", mode="invalid_mode")
+        assert result.success is False
+        assert result.error is not None
 
     def test_parent_directory_creation(self, tmp_path):
         """Test that parent directories are created."""
@@ -322,7 +320,7 @@ class TestWriteBackup:
 
         assert result.success
         # Check if backup was created
-        if result.file_results:
+        if result.file_responses:
             # Backup may have been created
             backup_files = list(tmp_path.glob("backup_test.txt.backup*"))
             if backup_files:
@@ -357,7 +355,8 @@ class TestWriteToolClass:
             tool = WriteTool()
             test_file = tmp_path / "test.txt"
 
-            result = tool.execute(str(test_file), "Test content", mode="apply")
+            from drowcoder.tools.tools.base import ToolResponseType
+            result = tool.execute(str(test_file), "Test content", mode="apply", as_type=ToolResponseType.INTACT)
 
             assert isinstance(result, WriteToolResponse)
             assert result.success is True
@@ -370,7 +369,8 @@ class TestWriteToolClass:
             tool = WriteTool(logger=logger)
 
             test_file = tmp_path / "test.txt"
-            result = tool.execute(str(test_file), "Test", mode="apply")
+            from drowcoder.tools.tools.base import ToolResponseType
+            result = tool.execute(str(test_file), "Test", mode="apply", as_type=ToolResponseType.INTACT)
 
             assert result.success is True
 
@@ -379,13 +379,14 @@ class TestWriteToolClass:
         if WriteTool:
             callback_called = []
 
-            def test_callback(event, data):
+            def test_callback(event, data=None):
                 callback_called.append((event, data))
 
             tool = WriteTool(callback=test_callback)
             test_file = tmp_path / "test.txt"
 
-            result = tool.execute(str(test_file), "Test", mode="apply")
+            from drowcoder.tools.tools.base import ToolResponseType
+            result = tool.execute(str(test_file), "Test", mode="apply", as_type=ToolResponseType.INTACT)
 
             assert result.success is True
             assert len(callback_called) > 0
@@ -405,10 +406,11 @@ class TestWriteToolClass:
             tool = WriteTool()
             test_file = tmp_path / "test.txt"
 
-            result = tool.execute(str(test_file), "Test", mode="apply")
+            from drowcoder.tools.tools.base import ToolResponseType
+            result = tool.execute(str(test_file), "Test", mode="apply", as_type=ToolResponseType.INTACT)
 
-            assert hasattr(result, 'metadata')
-            assert isinstance(result.metadata, dict)
+            assert hasattr(result, 'file_responses')
+            assert isinstance(result.file_responses, list)
 
 
 class TestWriteResultProperties:

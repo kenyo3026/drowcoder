@@ -13,11 +13,11 @@ Tests cover:
 - Tool class interface
 
 Usage:
-    # Test original search tool
-    python -m src.drowcoder.tools.tests.test_search
+    # Run tests
+    pytest src/drowcoder/tools/tools/tests/test_search.py -v
 
-    # Test refactored search tool
-    python -m src.drowcoder.tools.tests.test_search --module search_refactor
+    # Or with direct execution
+    python -m src.drowcoder.tools.tools.tests.test_search
 """
 
 import pytest
@@ -26,26 +26,21 @@ import os
 import tempfile
 import re
 from pathlib import Path
-import importlib
 
 # Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent.parent))
 
-# Get module name from environment variable or use default
-TEST_MODULE = os.environ.get('TEST_SEARCH_MODULE', 'search')
-
-# Dynamically import the specified module
-search_module = importlib.import_module(f'drowcoder.tools.{TEST_MODULE}')
-SearchTool = getattr(search_module, 'SearchTool', None)
-SearchToolResponse = getattr(search_module, 'SearchToolResponse', None)
-FileMatchMeta = getattr(search_module, 'FileMatchMeta', None)
-LineMeta = getattr(search_module, 'LineMeta', None)
+# Import from current unified tool structure
+from drowcoder.tools.tools.search import SearchTool, SearchToolResponse, FileMatchMeta, LineMeta
 
 # Helper function to maintain test compatibility
-def search(pattern, file, **kwargs):
+def search(path, content_pattern, filepath_pattern="*", **kwargs):
     """Wrapper function for testing - creates tool instance and calls execute"""
     tool = SearchTool()
-    return tool.execute(pattern=pattern, file=file, **kwargs)
+    from drowcoder.tools.tools.base import ToolResponseType
+    result = tool.execute(path=path, content_pattern=content_pattern, filepath_pattern=filepath_pattern, as_type=ToolResponseType.INTACT, **kwargs)
+    # Return content for backward compatibility with tests expecting string
+    return result.content if result.success else result.error
 
 
 @pytest.fixture
@@ -254,8 +249,10 @@ class TestSearchErrors:
 
     def test_nonexistent_path(self, tmp_path):
         """Test search with nonexistent path."""
-        with pytest.raises((FileNotFoundError, RuntimeError)):
-            search(str(tmp_path / "nonexistent"), ".*", "*", cwd=str(tmp_path))
+        result = search(str(tmp_path / "nonexistent"), ".*", "*", cwd=str(tmp_path))
+        # Should return error message
+        assert isinstance(result, str)
+        assert "does not exist" in result.lower() or "not found" in result.lower()
 
     def test_invalid_regex(self, tmp_path, test_files):
         """Test with invalid regex pattern."""
@@ -276,21 +273,22 @@ class TestSearchErrors:
         outside_file = outside_dir / "outside.txt"
         outside_file.write_text("Content")
 
-        try:
-            with pytest.raises((ValueError, RuntimeError)):
-                search(
-                    str(outside_dir),
-                    ".*",
-                    "*",
-                    cwd=str(tmp_path),
-                    enable_search_outside=False
-                )
-        finally:
-            # Cleanup
-            if outside_file.exists():
-                outside_file.unlink()
-            if outside_dir.exists():
-                outside_dir.rmdir()
+        result = search(
+            str(outside_dir),
+            ".*",
+            "*",
+            cwd=str(tmp_path),
+            enable_search_outside=False
+        )
+        # Should return error message
+        assert isinstance(result, str)
+        assert "outside workspace" in result.lower()
+
+        # Cleanup
+        if outside_file.exists():
+            outside_file.unlink()
+        if outside_dir.exists():
+            outside_dir.rmdir()
 
 
 class TestSearchMaxMatches:
@@ -328,11 +326,13 @@ class TestSearchToolClass:
         """Test that tool.execute() returns SearchToolResponse."""
         if SearchTool and SearchToolResponse:
             tool = SearchTool()
+            from drowcoder.tools.tools.base import ToolResponseType
             result = tool.execute(
                 path=str(tmp_path),
                 content_pattern=".*",
                 filepath_pattern="*",
-                cwd=str(tmp_path)
+                cwd=str(tmp_path),
+                as_type=ToolResponseType.INTACT
             )
 
             assert isinstance(result, SearchToolResponse)
@@ -345,11 +345,13 @@ class TestSearchToolClass:
             logger = logging.getLogger("test_logger")
             tool = SearchTool(logger=logger)
 
+            from drowcoder.tools.tools.base import ToolResponseType
             result = tool.execute(
                 path=str(tmp_path),
                 content_pattern=".*",
                 filepath_pattern="*",
-                cwd=str(tmp_path)
+                cwd=str(tmp_path),
+                as_type=ToolResponseType.INTACT
             )
 
             assert result.success is True
@@ -359,15 +361,17 @@ class TestSearchToolClass:
         if SearchTool:
             callback_called = []
 
-            def test_callback(event, data):
+            def test_callback(event, data=None):
                 callback_called.append((event, data))
 
             tool = SearchTool(callback=test_callback)
+            from drowcoder.tools.tools.base import ToolResponseType
             result = tool.execute(
                 path=str(tmp_path),
                 content_pattern=".*",
                 filepath_pattern="*",
-                cwd=str(tmp_path)
+                cwd=str(tmp_path),
+                as_type=ToolResponseType.INTACT
             )
 
             assert result.success is True
@@ -389,15 +393,18 @@ class TestSearchToolClass:
         """Test result contains metadata."""
         if SearchTool and SearchToolResponse:
             tool = SearchTool()
+            from drowcoder.tools.tools.base import ToolResponseType
             result = tool.execute(
                 path=str(tmp_path),
                 content_pattern=".*",
                 filepath_pattern="*",
-                cwd=str(tmp_path)
+                cwd=str(tmp_path),
+                as_type=ToolResponseType.INTACT
             )
 
             assert hasattr(result, 'metadata')
-            assert isinstance(result.metadata, dict)
+            from drowcoder.tools.tools.search import SearchToolResponseMetadata
+            assert isinstance(result.metadata, SearchToolResponseMetadata)
 
 
 class TestSearchResultProperties:
@@ -407,29 +414,33 @@ class TestSearchResultProperties:
         """Test files_found property."""
         if SearchTool and SearchToolResponse:
             tool = SearchTool()
+            from drowcoder.tools.tools.base import ToolResponseType
             result = tool.execute(
                 path=str(tmp_path),
                 content_pattern=".*",
                 filepath_pattern="*",
-                cwd=str(tmp_path)
+                cwd=str(tmp_path),
+                as_type=ToolResponseType.INTACT
             )
 
-            assert hasattr(result, 'files_found')
-            assert result.files_found >= 0
+            assert hasattr(result.metadata, 'files_found')
+            assert result.metadata.files_found >= 0
 
     def test_result_total_matches(self, tmp_path, test_files):
         """Test total_matches property."""
         if SearchTool and SearchToolResponse:
             tool = SearchTool()
+            from drowcoder.tools.tools.base import ToolResponseType
             result = tool.execute(
                 path=str(tmp_path),
                 content_pattern=".*",
                 filepath_pattern="*",
-                cwd=str(tmp_path)
+                cwd=str(tmp_path),
+                as_type=ToolResponseType.INTACT
             )
 
-            assert hasattr(result, 'total_matches')
-            assert result.total_matches >= 0
+            assert hasattr(result.metadata, 'total_matches')
+            assert result.metadata.total_matches >= 0
 
 
 class TestSearchSubdirectory:

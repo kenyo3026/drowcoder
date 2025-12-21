@@ -11,11 +11,11 @@ Tests cover:
 - Tool class interface
 
 Usage:
-    # Test bash tool
-    python -m src.drowcoder.tools.tests.test_bash
+    # Run tests
+    pytest src/drowcoder/tools/tools/tests/test_bash.py -v
 
-    # Test bash tool with module selection
-    python -m src.drowcoder.tools.tests.test_bash --module bash
+    # Or with direct execution
+    python -m src.drowcoder.tools.tools.tests.test_bash
 """
 
 import pytest
@@ -23,25 +23,20 @@ import sys
 import os
 import tempfile
 from pathlib import Path
-import importlib
 import time
 
 # Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent.parent))
 
-# Get module name from environment variable or use default
-TEST_MODULE = os.environ.get('TEST_BASH_MODULE', 'bash')
-
-# Dynamically import the specified module
-bash_module = importlib.import_module(f'drowcoder.tools.{TEST_MODULE}')
-CmdResponse = bash_module.CmdResponse
-BashTool = bash_module.BashTool
+# Import from current unified tool structure
+from drowcoder.tools.tools.bash import CmdResponse, BashTool
 
 # Helper function to maintain test compatibility
 def execute_command(command, cwd=None, timeout_seconds=0, shell=True, env=None,
                    encoding="utf-8", combine_stdout_stderr=True, enable_ignore=True, shell_policy="auto"):
     """Wrapper function for testing - creates tool instance and calls execute"""
     tool = BashTool()
+    from drowcoder.tools.tools.base import ToolResponseType
     tool_result = tool.execute(
         cmd=command,
         cwd=cwd,
@@ -52,6 +47,7 @@ def execute_command(command, cwd=None, timeout_seconds=0, shell=True, env=None,
         combine_stdout_stderr=combine_stdout_stderr,
         enable_ignore=enable_ignore,
         shell_policy=shell_policy,
+        as_type=ToolResponseType.INTACT,
     )
     # Return CmdResponse for backward compatibility
     if tool_result.success and tool_result.metadata and tool_result.metadata.cmd_response:

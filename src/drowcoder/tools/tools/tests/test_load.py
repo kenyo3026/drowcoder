@@ -10,11 +10,11 @@ Tests cover:
 - Tool class interface
 
 Usage:
-    # Test original load tool
-    python -m src.drowcoder.tools.tests.test_load
+    # Run tests
+    pytest src/drowcoder/tools/tools/tests/test_load.py -v
 
-    # Test refactored load tool
-    python -m src.drowcoder.tools.tests.test_load --module load_refactor
+    # Or with direct execution
+    python -m src.drowcoder.tools.tools.tests.test_load
 """
 
 import pytest
@@ -22,24 +22,19 @@ import sys
 import os
 import tempfile
 from pathlib import Path
-import importlib
 
 # Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent.parent))
 
-# Get module name from environment variable or use default
-TEST_MODULE = os.environ.get('TEST_LOAD_MODULE', 'load')
-
-# Dynamically import the specified module
-load_module = importlib.import_module(f'drowcoder.tools.{TEST_MODULE}')
-LoadTool = load_module.LoadTool
-LoadToolResponse = load_module.LoadToolResponse
+# Import from current unified tool structure
+from drowcoder.tools.tools.load import LoadTool, LoadToolResponse
 
 # Helper function to maintain test compatibility
 def load(file_path: str, ensure_abs: bool = True) -> str:
     """Wrapper function for testing - creates tool instance and calls execute"""
     tool = LoadTool()
-    result = tool.execute(file_path=file_path, ensure_abs=ensure_abs)
+    from drowcoder.tools.tools.base import ToolResponseType
+    result = tool.execute(file_path=file_path, ensure_abs=ensure_abs, as_type=ToolResponseType.INTACT)
     return result.content
 
 
@@ -216,23 +211,33 @@ class TestLoadErrors:
         """Test loading a non-existent file."""
         test_file = "/tmp/this_file_definitely_does_not_exist_12345.txt"
 
-        result = load(test_file)
-        assert "Error" in result or "not found" in result.lower()
+        tool = LoadTool()
+        from drowcoder.tools.tools.base import ToolResponseType
+        result = tool.execute(test_file, as_type=ToolResponseType.INTACT)
+        assert result.success is False
+        assert result.error is not None
+        assert "not found" in result.error.lower()
 
     def test_directory_instead_of_file(self, tmp_path):
         """Test loading a directory instead of a file."""
         test_dir = tmp_path / "testdir"
         test_dir.mkdir()
 
-        result = load(str(test_dir))
-        assert "Error" in result
+        tool = LoadTool()
+        from drowcoder.tools.tools.base import ToolResponseType
+        result = tool.execute(str(test_dir), as_type=ToolResponseType.INTACT)
+        assert result.success is False
+        assert result.error is not None
 
     def test_invalid_path_characters(self):
         """Test with invalid path characters."""
         test_file = "/tmp/\x00invalid\x00path.txt"
 
-        result = load(test_file)
-        assert isinstance(result, str)  # Should return error message
+        tool = LoadTool()
+        from drowcoder.tools.tools.base import ToolResponseType
+        result = tool.execute(test_file, as_type=ToolResponseType.INTACT)
+        assert result.success is False
+        assert result.error is not None
 
 
 class TestLoadToolClass:
@@ -244,7 +249,8 @@ class TestLoadToolClass:
         test_file = tmp_path / "test.txt"
         test_file.write_text("Test content")
 
-        result = tool.execute(str(test_file))
+        from drowcoder.tools.tools.base import ToolResponseType
+        result = tool.execute(str(test_file), as_type=ToolResponseType.INTACT)
         assert isinstance(result, LoadToolResponse)
         assert result.success is True
         assert result.content == "Test content"
@@ -257,21 +263,23 @@ class TestLoadToolClass:
         test_file = tmp_path / "test.txt"
         test_file.write_text("Test content")
 
-        result = tool.execute(str(test_file))
+        from drowcoder.tools.tools.base import ToolResponseType
+        result = tool.execute(str(test_file), as_type=ToolResponseType.INTACT)
         assert result.success is True
 
     def test_tool_with_callback(self, tmp_path):
         """Test tool with callback function."""
         callback_called = []
 
-        def test_callback(event):
+        def test_callback(event, data=None):
             callback_called.append(event)
 
         tool = LoadTool(callback=test_callback)
         test_file = tmp_path / "test.txt"
         test_file.write_text("Test content")
 
-        result = tool.execute(str(test_file))
+        from drowcoder.tools.tools.base import ToolResponseType
+        result = tool.execute(str(test_file), as_type=ToolResponseType.INTACT)
         assert result.success is True
 
     def test_tool_metadata(self, tmp_path):
@@ -280,9 +288,13 @@ class TestLoadToolClass:
         test_file = tmp_path / "test.txt"
         test_file.write_text("Test content")
 
-        result = tool.execute(str(test_file))
+        from drowcoder.tools.tools.base import ToolResponseType
+        result = tool.execute(str(test_file), as_type=ToolResponseType.INTACT)
         assert result.metadata is not None
-        assert isinstance(result.metadata, dict)
+        from drowcoder.tools.tools.load import LoadToolResponseMetadata
+        assert isinstance(result.metadata, LoadToolResponseMetadata)
+        assert result.metadata.file_path is not None
+        assert result.metadata.file_size == 12
 
 if __name__ == "__main__":
     import argparse

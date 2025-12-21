@@ -10,35 +10,30 @@ Tests cover:
 - Tool class interface
 
 Usage:
-    # Test original attempt_completion tool
-    python -m src.drowcoder.tools.tests.test_attempt_completion
+    # Run tests
+    pytest src/drowcoder/tools/tools/tests/test_attempt_completion.py -v
 
-    # Test refactored attempt_completion tool
-    python -m src.drowcoder.tools.tests.test_attempt_completion --module attempt_completion_refactor
+    # Or with direct execution
+    python -m src.drowcoder.tools.tools.tests.test_attempt_completion
 """
 
 import pytest
 import sys
 import os
 from pathlib import Path
-import importlib
 
 # Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent.parent))
 
-# Get module name from environment variable or use default
-TEST_MODULE = os.environ.get('TEST_ATTEMPT_COMPLETION_MODULE', 'attempt_completion')
-
-# Dynamically import the specified module
-ac_module = importlib.import_module(f'drowcoder.tools.{TEST_MODULE}')
-AttemptCompletionTool = ac_module.AttemptCompletionTool
-AttemptCompletionToolResponse = ac_module.AttemptCompletionToolResponse
+# Import from current unified tool structure
+from drowcoder.tools.tools.attempt_completion import AttemptCompletionTool, AttemptCompletionToolResponse
 
 # Helper function to maintain test compatibility
 def attempt_completion(result: str) -> str:
     """Wrapper function for testing - creates tool instance and calls execute"""
     tool = AttemptCompletionTool()
-    result_obj = tool.execute(result=result)
+    from drowcoder.tools.tools.base import ToolResponseType
+    result_obj = tool.execute(result=result, as_type=ToolResponseType.INTACT)
     if result_obj.success:
         return result_obj.content
     else:
@@ -201,7 +196,8 @@ class TestAttemptCompletionClass:
     def test_tool_execute_returns_result(self):
         """Test tool execute returns AttemptCompletionToolResponse."""
         tool = AttemptCompletionTool()
-        result = tool.execute(result="Test")
+        from drowcoder.tools.tools.base import ToolResponseType
+        result = tool.execute(result="Test", as_type=ToolResponseType.INTACT)
 
         assert isinstance(result, AttemptCompletionToolResponse)
         assert result.success is True
@@ -213,7 +209,8 @@ class TestAttemptCompletionClass:
         logger = logging.getLogger("test")
 
         tool = AttemptCompletionTool(logger=logger)
-        result = tool.execute(result="Test")
+        from drowcoder.tools.tools.base import ToolResponseType
+        result = tool.execute(result="Test", as_type=ToolResponseType.INTACT)
 
         assert result.success is True
 
@@ -221,11 +218,12 @@ class TestAttemptCompletionClass:
         """Test tool with callback."""
         callback_data = []
 
-        def callback(event, data):
+        def callback(event, data=None):
             callback_data.append((event, data))
 
         tool = AttemptCompletionTool(callback=callback)
-        result = tool.execute(result="Test")
+        from drowcoder.tools.tools.base import ToolResponseType
+        result = tool.execute(result="Test", as_type=ToolResponseType.INTACT)
 
         assert result.success is True
         assert len(callback_data) == 1
@@ -241,7 +239,8 @@ class TestAttemptCompletionClass:
     def test_tool_metadata(self):
         """Test result contains tool_name."""
         tool = AttemptCompletionTool()
-        result = tool.execute(result="Test")
+        from drowcoder.tools.tools.base import ToolResponseType
+        result = tool.execute(result="Test", as_type=ToolResponseType.INTACT)
 
         assert result.tool_name == "attempt_completion"
         assert result.success is True
