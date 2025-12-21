@@ -1,8 +1,9 @@
 # Drowcoder
 
-> ⚠️ **Development Status**: This project is currently in early development. Features and APIs may change significantly.
+An agentic AI assistant 🤖 specialized in programming, featuring a unified tool dispatcher architecture with built-in tools and MCP (Model Context Protocol) integration.
 
-An agentic AI coding assistant framework designed for Cursor IDE, featuring a unified tool dispatcher architecture with built-in tools and MCP (Model Context Protocol) integration.
+> [!NOTE]
+> This project is currently in early development. Features and APIs may change significantly.
 
 ## ✨ Key Features
 
@@ -90,7 +91,8 @@ agent.receive("Your instruction")
 agent.complete()
 ```
 
-> **Note**: For detailed API usage, see [examples/basic_usage.py](examples/basic_usage.py)
+> [!NOTE]
+> For detailed API usage, see [examples/basic_usage.py](examples/basic_usage.py)
 
 ## 📚 Documentation
 
