@@ -1,18 +1,19 @@
 # Drowcoder
 
-> ⚠️ **開發狀態**：此專案目前處於早期開發階段。功能和 API 可能會大幅變更。
+一個專注於程式設計的 AI 助手 🤖，支援統一整合的內建 tools 和 MCP（Model Context Protocol）
 
-專為 Cursor IDE 設計的 AI 程式設計助手框架，具有統一的工具調度架構，整合內建工具和 MCP（Model Context Protocol）支援。
+> [!NOTE]
+> 此專案目前正在持續開發中。功能和 API 可能會頻繁變更。
 
 ## ✨ 核心特色
 
-- **🔧 豐富的內建工具**：7 個必備程式設計工具（load、search、search_and_replace、write、bash、todo、attempt_completion）
-- **🌐 MCP 整合**：支援 Streamable HTTP 和 Stdio 兩種傳輸協議
-- **🔀 統一調度器**：無縫整合內建工具和 MCP 伺服器
-- **📦 可擴展性**：透過繼承 `BaseTool` 輕鬆添加自訂工具
-- **💾 檢查點系統**：跨會話的持久狀態管理
-- **⚙️ 靈活配置**：基於 YAML 的配置，支援角色型模型管理
-- **🚀 多種進入點**：CLI、開發模式和函式庫使用
+- **🔧 內建工具**：7 個程式設計工具（load、search、search_and_replace、write、bash、todo、attempt_completion）
+- **🌐 MCP 整合**：支援 Streamable HTTP 和 Stdio 兩種傳輸方式
+- **🔀 統一調度器**：同時使用內建工具和 MCP 伺服器
+- **📦 可擴展**：繼承 `BaseTool` 即可添加自訂工具
+- **💾 檢查點系統**：狀態持久化，支援跨會話恢復
+- **⚙️ 靈活配置**：YAML 配置檔，支援角色型模型管理
+- **🚀 多種使用方式**：CLI、開發模式或函式庫
 
 ## 🚀 安裝
 
@@ -40,7 +41,7 @@ pip install git+https://github.com/kenyo3026/drowcoder.git
 
 ### 方法 3：本地開發
 
-如果您想在不安裝的情況下使用：
+如果不想安裝，可以直接使用：
 
 ```bash
 git clone https://github.com/kenyo3026/drowcoder.git
@@ -73,7 +74,7 @@ drowcoder --config /path/to/config.yaml
 ```python
 from drowcoder import DrowAgent
 
-# 使用配置建立代理
+# 建立代理
 agent = DrowAgent(
     workspace="/path/to/project",
     tools=None,  # 使用預設內建工具
@@ -82,36 +83,37 @@ agent = DrowAgent(
     api_key="your-api-key"
 )
 
-# 初始化代理
+# 初始化
 agent.init()
 
-# 處理使用者查詢
+# 處理指令
 agent.receive("您的指令")
 agent.complete()
 ```
 
-> **注意**：詳細的 API 使用方式請參閱 [examples/basic_usage.py](examples/basic_usage.py)
+> [!NOTE]
+> 更詳細的 API 使用方式請參閱 [examples/basic_usage.py](examples/basic_usage.py)
 
 ## 📚 文件
 
 ### 快速開始
 
-1. **查看範例**：參閱 [examples/basic_usage.py](examples/basic_usage.py)
-2. **學習使用**：閱讀 [docs/usage.md](docs/usage.md) - 入門使用指南
-3. **探索工具**：瀏覽 [src/drowcoder/tools/](src/drowcoder/tools/) 中的工具文件
+1. **查看範例**：參考 [examples/basic_usage.py](examples/basic_usage.py)
+2. **學習使用**：閱讀 [docs/usage.md](docs/usage.md) 入門指南
+3. **探索工具**：查看 [src/drowcoder/tools/](src/drowcoder/tools/) 中的工具文件
 
 ### 核心模組
 
 - **[進入點](src/drowcoder/docs/main.md)** - CLI 進入點（main、cli、develop、debug）
-- **[代理](src/drowcoder/docs/agent.md)** - 代理進入腳本
-- **[檢查點](src/drowcoder/docs/checkpoint.md)** - 用於狀態管理的檢查點系統
-- **[配置](src/drowcoder/docs/config.md)** - 配置檔案管理
+- **[代理](src/drowcoder/docs/agent.md)** - 代理核心邏輯
+- **[檢查點](src/drowcoder/docs/checkpoint.md)** - 狀態管理系統
+- **[配置](src/drowcoder/docs/config.md)** - 配置管理
 - **[模型](src/drowcoder/docs/model.md)** - 模型分發器和角色管理
-- **[詳細輸出](src/drowcoder/docs/verbose.md)** - 訊息輸出格式化系統
+- **[詳細輸出](src/drowcoder/docs/verbose.md)** - 輸出格式化
 
 ### 工具與架構
 
-- **[工具調度器架構](src/drowcoder/tools/README.md)** - 統一調度系統概述
+- **[工具調度器架構](src/drowcoder/tools/README.md)** - 統一調度系統說明
 - **[基礎工具](src/drowcoder/tools/tools/base.md)** - 工具架構和基礎類別
 - **內建工具**：
   - **[載入](src/drowcoder/tools/tools/load.md)** - 檔案載入
@@ -212,10 +214,10 @@ python -m src.drowcoder.develop
   - [工具調度器架構](src/drowcoder/tools/README.md) - 統一工具系統概述
   - [內建工具](src/drowcoder/tools/tools/) - 個別工具文件
   - [MCP 整合](src/drowcoder/tools/mcps/README.md) - MCP 伺服器整合指南
-- 💡 **查看範例**：參閱 [examples/](examples/) 目錄
-- 🔧 **開發**：參閱上方的 [開發](#-開發) 章節
+- 💡 **查看範例**：參考 [examples/](examples/) 目錄
+- 🔧 **開發**：查看上方的 [開發](#-開發) 章節
 
 ## 📄 授權
 
-此專案採用 GPL-3.0 授權條款 - 詳見 [LICENSE](LICENSE) 檔案。
+此專案採用 GPL-3.0 授權條款，詳見 [LICENSE](LICENSE) 檔案。
 
