@@ -44,7 +44,7 @@ models:
 ```python
 from drowcoder.model import ModelDispatcher
 
-# Models configuration from YAML
+# Models configuration (from YAML or JSON)
 models_config = [
     {
         'name': 'gemini',
@@ -69,8 +69,8 @@ from config_morpher import ConfigMorpher
 from drowcoder.model import ModelDispatcher
 import litellm
 
-# Load configuration
-config = ConfigMorpher.from_yaml('config.yaml')
+# Load configuration (YAML or JSON)
+config = ConfigMorpher.from_yaml('config.yaml')  # or from_json('config.json')
 models_config = config.fetch('models')
 
 # Create dispatcher with morphing
@@ -185,6 +185,8 @@ Dispatch models to their respective role groups.
 
 ## Configuration Format
 
+Configuration files can be in YAML or JSON format. Both formats support the same structure.
+
 ### YAML Configuration Example
 
 ```yaml
@@ -223,8 +225,8 @@ from config_morpher import ConfigMorpher
 from drowcoder.model import ModelDispatcher
 import litellm
 
-# Load configuration
-config_morpher = ConfigMorpher.from_yaml('config.yaml')
+# Load configuration (YAML or JSON)
+config_morpher = ConfigMorpher.from_yaml('config.yaml')  # or from_json('config.json')
 models_config = config_morpher.fetch('models')
 
 # Create dispatcher

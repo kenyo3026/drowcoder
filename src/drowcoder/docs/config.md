@@ -6,9 +6,10 @@ The `config` module provides configuration file management utilities for drowcod
 
 ## Features
 
-- **Configuration File Operations**: Edit, show, and validate configuration files
+- **Configuration File Operations**: Edit, show, validate, and set default configuration files
+- **Multiple Format Support**: Supports both YAML (`.yaml`, `.yml`) and JSON (`.json`) configuration files
 - **Platform-Aware Editor Selection**: Automatically selects appropriate editor based on platform and environment
-- **Configuration Validation**: Validates YAML syntax and required fields
+- **Configuration Validation**: Validates YAML/JSON syntax and required fields
 - **CLI Integration**: Seamless integration with command-line interface
 
 ## Configuration Commands
@@ -40,18 +41,34 @@ drowcoder config show --config ./custom_config.yaml
 
 ### Validate Command
 
-Validates the configuration file structure and required fields.
+Validates the configuration file structure and required fields. Supports both YAML and JSON formats.
 
 ```bash
 drowcoder config validate
 drowcoder config validate --config ./custom_config.yaml
+drowcoder config validate --config ./custom_config.json
 ```
 
 **Validation Checks**:
-- YAML syntax validity
+- YAML/JSON syntax validity
 - Root must be a dictionary
 - `models` section must exist and be a non-empty list
 - Each model must have `model` and `api_key` fields
+
+### Set Command
+
+Sets the default configuration file by copying its content to `~/.drowcoder/config.yaml`. Supports both YAML and JSON input files.
+
+```bash
+drowcoder config set /path/to/config.yaml
+drowcoder config set /path/to/config.json
+```
+
+**Behavior**:
+- Reads and validates the specified configuration file (YAML or JSON)
+- Copies the content to `~/.drowcoder/config.yaml` (always saved as YAML)
+- Ensures the default config directory exists
+- Provides clear success/error messages
 
 ## API Reference
 
@@ -100,6 +117,7 @@ class ConfigCommand:
     EDIT: str = 'edit'
     SHOW: str = 'show'
     VALIDATE: str = 'validate'
+    SET: str = 'set'
 ```
 
 ### ConfigMain
@@ -127,12 +145,12 @@ from drowcoder.config import ConfigMain
 exit_code = ConfigMain.edit('./config.yaml')
 ```
 
-#### `show(config_path: Union[str, Path]) -> int`
+#### `show(config_path: Union[str, Path, None] = None) -> int`
 
-Display current configuration file content.
+Display current configuration file content. If no path is provided, shows the default config at `~/.drowcoder/config.yaml`.
 
 **Parameters**:
-- **`config_path`** (Union[str, Path]): Path to configuration file
+- **`config_path`** (Union[str, Path, None]): Path to configuration file (optional, defaults to `~/.drowcoder/config.yaml`)
 
 **Returns**: Exit code (0 for success, 1 for failure)
 
@@ -143,18 +161,45 @@ from drowcoder.config import ConfigMain
 exit_code = ConfigMain.show('./config.yaml')
 ```
 
-#### `validate(config_path: Union[str, Path]) -> int`
+#### `set(config_path: Union[str, Path]) -> int`
 
-Validate configuration file.
+Set default configuration file by copying content to `~/.drowcoder/config.yaml`. Supports both YAML and JSON input files.
 
 **Parameters**:
-- **`config_path`** (Union[str, Path]): Path to configuration file
+- **`config_path`** (Union[str, Path]): Path to configuration file (YAML or JSON)
+
+**Returns**: Exit code (0 for success, 1 for failure)
+
+**Behavior**:
+- Validates that the config file exists
+- Loads configuration from YAML or JSON file
+- Validates configuration structure and required fields
+- Copies content to `~/.drowcoder/config.yaml` (always saved as YAML)
+- Creates default config directory if it doesn't exist
+
+**Example**:
+```python
+from drowcoder.config import ConfigMain
+
+# Set default config from YAML file
+exit_code = ConfigMain.set('./config.yaml')
+
+# Set default config from JSON file
+exit_code = ConfigMain.set('./config.json')
+```
+
+#### `validate(config_path: Union[str, Path]) -> int`
+
+Validate configuration file. Supports both YAML and JSON formats.
+
+**Parameters**:
+- **`config_path`** (Union[str, Path]): Path to configuration file (YAML or JSON)
 
 **Returns**: Exit code (0 for valid, 1 for invalid)
 
 **Validation Rules**:
 - File must exist
-- Must be valid YAML
+- Must be valid YAML or JSON
 - Root must be a dictionary
 - Must have `models` section
 - `models` must be a non-empty list
@@ -166,7 +211,12 @@ Validate configuration file.
 ```python
 from drowcoder.config import ConfigMain
 
+# Validate YAML config
 exit_code = ConfigMain.validate('./config.yaml')
+
+# Validate JSON config
+exit_code = ConfigMain.validate('./config.json')
+
 if exit_code == 0:
     print("Configuration is valid!")
 ```
@@ -215,7 +265,9 @@ editor = Editor.get_preferred()
 
 ## Configuration File Format
 
-### Basic Structure
+Configuration files can be written in either YAML (`.yaml`, `.yml`) or JSON (`.json`) format. Both formats support the same structure and fields.
+
+### Basic Structure (YAML)
 
 ```yaml
 models:
@@ -226,6 +278,25 @@ models:
     roles:
       - chatcompletions
       - postcompletions: "task description"
+```
+
+### Basic Structure (JSON)
+
+```json
+{
+  "models": [
+    {
+      "name": "model_name",
+      "api_key": "YOUR_API_KEY",
+      "model": "model_identifier",
+      "temperature": 0,
+      "roles": [
+        "chatcompletions",
+        "postcompletions: task description"
+      ]
+    }
+  ]
+}
 ```
 
 ### Required Fields
@@ -271,11 +342,18 @@ else:
 # Edit configuration
 drowcoder config edit
 
-# Show configuration
+# Show configuration (default: ~/.drowcoder/config.yaml)
 drowcoder config show
+
+# Show specific config file
+drowcoder config show --config ./custom_config.yaml
 
 # Validate configuration
 drowcoder config validate
+
+# Set default configuration (copies content to ~/.drowcoder/config.yaml)
+drowcoder config set ./config.yaml
+drowcoder config set ./config.json
 
 # Use custom config path
 drowcoder config edit --config ./custom_config.yaml

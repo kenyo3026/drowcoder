@@ -44,7 +44,7 @@ class MainArgs:
 
 Core execution class that provides:
 
-- **Configuration Loading**: Loads YAML configuration
+- **Configuration Loading**: Loads YAML or JSON configuration
 - **Model Dispatching**: Uses ModelDispatcher for role-based model organization
 - **Agent Creation**: Creates and initializes DrowAgent
 - **Execution Modes**: Supports headless and interactive modes

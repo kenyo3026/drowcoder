@@ -44,7 +44,7 @@ models:
 ```python
 from drowcoder.model import ModelDispatcher
 
-# 來自 YAML 的模型配置
+# 模型配置（可來自 YAML 或 JSON）
 models_config = [
     {
         'name': 'gemini',
@@ -69,8 +69,8 @@ from config_morpher import ConfigMorpher
 from drowcoder.model import ModelDispatcher
 import litellm
 
-# 載入配置
-config = ConfigMorpher.from_yaml('config.yaml')
+# 載入配置（YAML 或 JSON）
+config = ConfigMorpher.from_yaml('config.yaml')  # 或 from_json('config.json')
 models_config = config.fetch('models')
 
 # 建立帶轉換的分發器
@@ -185,6 +185,8 @@ class ModelRoleType:
 
 ## 配置格式
 
+配置檔可以使用 YAML 或 JSON 格式，兩種格式支援相同的結構。
+
 ### YAML 配置範例
 
 ```yaml
@@ -223,8 +225,8 @@ from config_morpher import ConfigMorpher
 from drowcoder.model import ModelDispatcher
 import litellm
 
-# 載入配置
-config_morpher = ConfigMorpher.from_yaml('config.yaml')
+# 載入配置（YAML 或 JSON）
+config_morpher = ConfigMorpher.from_yaml('config.yaml')  # 或 from_json('config.json')
 models_config = config_morpher.fetch('models')
 
 # 建立分發器

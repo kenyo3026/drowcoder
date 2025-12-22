@@ -7,7 +7,7 @@ The `agent.py` script provides a simple entry point for running drowcoder agents
 ## Features
 
 - **Simple Entry Point**: Quick way to start an agent without full CLI setup
-- **Configuration Loading**: Loads configuration from YAML file
+- **Configuration Loading**: Loads configuration from YAML or JSON file
 - **Interactive Loop**: Continuous interaction loop for agent conversations
 - **Basic Argument Parsing**: Command-line arguments for config, workspace, and checkpoint
 
@@ -83,7 +83,7 @@ if __name__ == '__main__':
 
 ## Configuration
 
-The script expects a YAML configuration file with the following structure:
+The script expects a YAML or JSON configuration file with the following structure:
 
 ```yaml
 models:
@@ -101,7 +101,7 @@ tools:
 ## Workflow
 
 1. **Parse Arguments**: Reads command-line arguments for config, workspace, and checkpoint
-2. **Load Configuration**: Loads YAML configuration file using ConfigMorpher
+2. **Load Configuration**: Loads YAML or JSON configuration file using ConfigMorpher
 3. **Prepare Completion**: Morphs configuration for LiteLLM completion
 4. **Create Agent**: Initializes DrowAgent with configuration
 5. **Interactive Loop**: Continuously receives user input and completes agent responses
