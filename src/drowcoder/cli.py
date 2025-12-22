@@ -20,8 +20,7 @@ def setup_config(yaml_paths: Union[str, pathlib.Path, list, None]):
 
     Priority:
     1. -c parameter (yaml_paths) → return as-is for ConfigMorpher
-    2. User set default (~/.drowcoder/default_config.txt)
-    3. System default (~/.drowcoder/config.yaml) with first-time setup
+    2. System default (~/.drowcoder/config.yaml) with first-time setup
 
     Returns:
         Config path(s) for ConfigMorpher (str, Path, or list)
@@ -30,16 +29,7 @@ def setup_config(yaml_paths: Union[str, pathlib.Path, list, None]):
     if yaml_paths:
         return yaml_paths
 
-    # No -c provided, check user set default
-    default_config_marker = pathlib.Path.home() / '.drowcoder' / 'default_config.txt'
-    if default_config_marker.exists():
-        with open(default_config_marker, 'r', encoding='utf-8') as f:
-            user_default = f.read().strip()
-
-        if user_default and pathlib.Path(user_default).exists():
-            return user_default
-
-    # Fall back to system default
+    # Use system default (~/.drowcoder/config.yaml)
     default_config = pathlib.Path.home() / '.drowcoder' / 'config.yaml'
 
     # If system default doesn't exist, create it

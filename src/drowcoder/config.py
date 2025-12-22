@@ -2,6 +2,7 @@ import os
 import pathlib
 import platform
 import subprocess
+import json
 import yaml
 from dataclasses import dataclass
 from typing import Union
@@ -62,11 +63,38 @@ class ConfigCommand:
 class ConfigMain:
     """Configuration management class"""
 
-    DEFAULT_CONFIG_MARKER = pathlib.Path.home() / '.drowcoder' / 'default_config.txt'
+    DEFAULT_CONFIG_PATH = pathlib.Path.home() / '.drowcoder' / 'config.yaml'
+
+    @staticmethod
+    def _load_config_file(config_path: pathlib.Path) -> dict:
+        """Load configuration from YAML or JSON file.
+
+        Args:
+            config_path: Path to configuration file
+
+        Returns:
+            Dictionary containing configuration data
+
+        Raises:
+            ValueError: If file extension is not supported
+            yaml.YAMLError: If YAML file is invalid
+            json.JSONDecodeError: If JSON file is invalid
+        """
+        if config_path.suffix in {".yaml", ".yml"}:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                return yaml.safe_load(f) or {}
+        elif config_path.suffix == ".json":
+            with open(config_path, 'r', encoding='utf-8') as f:
+                return json.load(f) or {}
+        else:
+            raise ValueError(
+                f"Unsupported file extension: {config_path.suffix}. "
+                f"Supported extensions: .yaml, .yml, .json"
+            )
 
     @staticmethod
     def set(config_path: Union[str, pathlib.Path]):
-        """Set default configuration file"""
+        """Set default configuration file by copying content to ~/.drowcoder/config.yaml"""
         config_path = pathlib.Path(config_path).resolve()
 
         # Validate config file exists
@@ -74,38 +102,44 @@ class ConfigMain:
             print(f"❌ Config file not found: {config_path}")
             return 1
 
-        # Validate config file is valid
+        # Load and validate config file (supports YAML and JSON)
         try:
-            with open(config_path, 'r', encoding='utf-8') as f:
-                config_data = yaml.safe_load(f)
-
-            if not isinstance(config_data, dict):
-                print("❌ Invalid config: Root must be a dictionary")
-                return 1
-
-            models = config_data.get('models', [])
-            if not isinstance(models, list) or len(models) == 0:
-                print("❌ Invalid config: Missing or empty 'models' section")
-                return 1
-
-            first_model = models[0]
-            if not first_model.get('model') or not first_model.get('api_key'):
-                print("❌ Invalid config: First model missing 'model' or 'api_key'")
-                return 1
-
+            config_data = ConfigMain._load_config_file(config_path)
+        except ValueError as e:
+            print(f"❌ {e}")
+            return 1
         except yaml.YAMLError as e:
             print(f"❌ Invalid YAML syntax: {e}")
+            return 1
+        except json.JSONDecodeError as e:
+            print(f"❌ Invalid JSON syntax: {e}")
             return 1
         except Exception as e:
             print(f"❌ Error reading config: {e}")
             return 1
 
-        # Save to default config marker
-        ConfigMain.DEFAULT_CONFIG_MARKER.parent.mkdir(parents=True, exist_ok=True)
-        with open(ConfigMain.DEFAULT_CONFIG_MARKER, 'w', encoding='utf-8') as f:
-            f.write(str(config_path))
+        # Validate config structure
+        if not isinstance(config_data, dict):
+            print("❌ Invalid config: Root must be a dictionary")
+            return 1
 
-        print(f"✅ Default config set to: {config_path}")
+        models = config_data.get('models', [])
+        if not isinstance(models, list) or len(models) == 0:
+            print("❌ Invalid config: Missing or empty 'models' section")
+            return 1
+
+        first_model = models[0]
+        if not first_model.get('model') or not first_model.get('api_key'):
+            print("❌ Invalid config: First model missing 'model' or 'api_key'")
+            return 1
+
+        # Write config content to default location (~/.drowcoder/config.yaml)
+        ConfigMain.DEFAULT_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with open(ConfigMain.DEFAULT_CONFIG_PATH, 'w', encoding='utf-8') as f:
+            yaml.dump(config_data, f, allow_unicode=True, sort_keys=False)
+
+        print(f"✅ Default config set to: {ConfigMain.DEFAULT_CONFIG_PATH}")
+        print(f"   (Copied from: {config_path})")
         return 0
 
     @staticmethod
@@ -142,26 +176,12 @@ class ConfigMain:
     def show(config_path: Union[str, pathlib.Path, None] = None):
         """Display configuration file content.
 
-        If no path provided, shows the default config:
-        1. User set default (~/.drowcoder/default_config.txt)
-        2. System default (~/.drowcoder/config.yaml)
+        If no path provided, shows the default config at ~/.drowcoder/config.yaml
         """
         # If no path provided, use default config
         if config_path is None:
-            if ConfigMain.DEFAULT_CONFIG_MARKER.exists():
-                with open(ConfigMain.DEFAULT_CONFIG_MARKER, 'r', encoding='utf-8') as f:
-                    user_default = f.read().strip()
-
-                if user_default and pathlib.Path(user_default).exists():
-                    config_path = pathlib.Path(user_default)
-                    print(f"📌 Using user set default config:")
-                else:
-                    print(f"⚠️  User default config not found: {user_default}")
-                    print(f"Falling back to system default...")
-                    config_path = pathlib.Path.home() / '.drowcoder' / 'config.yaml'
-            else:
-                config_path = pathlib.Path.home() / '.drowcoder' / 'config.yaml'
-                print(f"📌 Using system default config:")
+            config_path = ConfigMain.DEFAULT_CONFIG_PATH
+            print(f"📌 Using default config:")
 
         config_path = pathlib.Path(config_path).resolve()
 
@@ -183,7 +203,7 @@ class ConfigMain:
 
     @staticmethod
     def validate(config_path: Union[str, pathlib.Path]):
-        """Validate configuration file"""
+        """Validate configuration file (supports YAML and JSON)"""
         config_path = pathlib.Path(config_path).resolve()
 
         if not config_path.exists():
@@ -191,45 +211,49 @@ class ConfigMain:
             return 1
 
         try:
-            with open(config_path, 'r', encoding='utf-8') as f:
-                config_data = yaml.safe_load(f)
-
-            # Basic validation
-            if not isinstance(config_data, dict):
-                print("❌ Invalid config: Root must be a dictionary")
-                return 1
-
-            # Check required fields
-            if 'models' not in config_data:
-                print("❌ Invalid config: Missing 'models' section")
-                return 1
-
-            models = config_data['models']
-            if not isinstance(models, list) or len(models) == 0:
-                print("❌ Invalid config: 'models' must be a non-empty list")
-                return 1
-
-            # Validate each model
-            for i, model in enumerate(models):
-                if not isinstance(model, dict):
-                    print(f"❌ Invalid config: Model {i} must be a dictionary")
-                    return 1
-
-                if 'model' not in model:
-                    print(f"❌ Invalid config: Model {i} missing 'model' field")
-                    return 1
-
-                if 'api_key' not in model:
-                    print(f"❌ Invalid config: Model {i} missing 'api_key' field")
-                    return 1
-
-            print(f"✅ Configuration is valid: {config_path}")
-            print(f"   Found {len(models)} model(s)")
-            return 0
-
+            config_data = ConfigMain._load_config_file(config_path)
+        except ValueError as e:
+            print(f"❌ {e}")
+            return 1
         except yaml.YAMLError as e:
             print(f"❌ Invalid YAML syntax: {e}")
             return 1
-        except Exception as e:
-            print(f"❌ Error validating config: {e}")
+        except json.JSONDecodeError as e:
+            print(f"❌ Invalid JSON syntax: {e}")
             return 1
+        except Exception as e:
+            print(f"❌ Error reading config: {e}")
+            return 1
+
+        # Basic validation
+        if not isinstance(config_data, dict):
+            print("❌ Invalid config: Root must be a dictionary")
+            return 1
+
+        # Check required fields
+        if 'models' not in config_data:
+            print("❌ Invalid config: Missing 'models' section")
+            return 1
+
+        models = config_data['models']
+        if not isinstance(models, list) or len(models) == 0:
+            print("❌ Invalid config: 'models' must be a non-empty list")
+            return 1
+
+        # Validate each model
+        for i, model in enumerate(models):
+            if not isinstance(model, dict):
+                print(f"❌ Invalid config: Model {i} must be a dictionary")
+                return 1
+
+            if 'model' not in model:
+                print(f"❌ Invalid config: Model {i} missing 'model' field")
+                return 1
+
+            if 'api_key' not in model:
+                print(f"❌ Invalid config: Model {i} missing 'api_key' field")
+                return 1
+
+        print(f"✅ Configuration is valid: {config_path}")
+        print(f"   Found {len(models)} model(s)")
+        return 0
