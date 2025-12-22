@@ -15,7 +15,7 @@
 - **🔀 Unified Dispatcher**: Seamless integration of built-in tools and MCP servers
 - **📦 Extensible**: Easy to add custom tools by extending `BaseTool`
 - **💾 Checkpoint System**: Persistent state management across sessions
-- **⚙️ Flexible Configuration**: YAML-based configuration with role-based model management
+- **⚙️ Flexible Configuration**: YAML/JSON configuration with role-based model management ([see configuration guide](src/drowcoder/docs/config.md))
 - **🚀 Multiple Entry Points**: CLI, development mode, and library usage
 
 ## 🚀 Installation
@@ -70,7 +70,16 @@ drowcoder --workspace /path/to/your/project
 
 # Use specific configuration
 drowcoder --config /path/to/config.yaml
+
+# Manage configuration
+drowcoder config edit    # Edit default config
+drowcoder config show    # Show current config
+drowcoder config validate # Validate config
+drowcoder config set /path/to/config.yaml  # Set default config
 ```
+
+> [!TIP]
+> Need help with configuration? See the [Configuration Guide](src/drowcoder/docs/config.md) for detailed format, examples, and best practices.
 
 ### Library Usage
 
@@ -97,6 +106,47 @@ agent.complete()
 > [!NOTE]
 > For detailed API usage, see [examples/basic_usage.py](examples/basic_usage.py)
 
+## ⚙️ Configuration
+
+Drowcoder uses YAML or JSON configuration files to manage models, API keys, and other settings.
+
+### Quick Example
+
+```yaml
+models:
+  - name: gemini
+    model: gemini/gemini-2.5-flash
+    api_key: YOUR_API_KEY
+    temperature: 0
+    roles:
+      - chatcompletions
+```
+
+### Configuration Management
+
+```bash
+# Edit default configuration (~/.drowcoder/config.yaml)
+drowcoder config edit
+
+# Show current configuration
+drowcoder config show
+
+# Validate configuration
+drowcoder config validate
+
+# Set default configuration from a file
+drowcoder config set /path/to/config.yaml
+```
+
+> 📖 **For detailed configuration documentation**, including:
+> - Complete configuration format (YAML/JSON)
+> - All available fields and options
+> - Model roles and role-based dispatching
+> - MCP server configuration
+> - Best practices and examples
+>
+> See **[Configuration Guide](src/drowcoder/docs/config.md)** → `src/drowcoder/docs/config.md`
+
 ## 📚 Documentation
 
 ### Quick Start
@@ -107,10 +157,10 @@ agent.complete()
 
 ### Core Modules
 
+- **[Configuration](src/drowcoder/docs/config.md)** ⚙️ - **Configuration file management** (YAML/JSON format, CLI commands, examples)
 - **[Entry Points](src/drowcoder/docs/main.md)** - CLI entry points (main, cli, develop, debug)
 - **[Agent](src/drowcoder/docs/agent.md)** - Agent entry script
 - **[Checkpoint](src/drowcoder/docs/checkpoint.md)** - Checkpoint system for state management
-- **[Config](src/drowcoder/docs/config.md)** - Configuration file management
 - **[Model](src/drowcoder/docs/model.md)** - Model dispatcher and role management
 - **[Verbose](src/drowcoder/docs/verbose.md)** - Message output formatting system
 

@@ -15,7 +15,7 @@ Drowcoder 是一個通用的 AI 代理機器人 🤖，當前指任為一位專�
 - **🔀 統一調度器**：同時使用內建工具和 MCP 伺服器
 - **📦 可擴展**：繼承 `BaseTool` 即可添加自訂工具
 - **💾 檢查點系統**：狀態持久化，支援跨會話恢復
-- **⚙️ 靈活配置**：YAML 配置檔，支援角色型模型管理
+- **⚙️ 靈活配置**：YAML/JSON 配置檔，支援角色型模型管理（[查看配置指南](src/drowcoder/docs/config.zh-tw.md)）
 - **🚀 多種使用方式**：CLI、開發模式或函式庫
 
 ## 🚀 安裝
@@ -70,7 +70,16 @@ drowcoder --workspace /path/to/your/project
 
 # 使用特定配置
 drowcoder --config /path/to/config.yaml
+
+# 管理配置
+drowcoder config edit    # 編輯預設配置
+drowcoder config show    # 顯示當前配置
+drowcoder config validate # 驗證配置
+drowcoder config set /path/to/config.yaml  # 設定預設配置
 ```
+
+> [!TIP]
+> 需要配置相關的協助嗎？查看 [配置指南](src/drowcoder/docs/config.zh-tw.md) 了解詳細格式、範例和最佳實踐。
 
 ### 函式庫使用
 
@@ -97,6 +106,47 @@ agent.complete()
 > [!NOTE]
 > 更詳細的 API 使用方式請參閱 [examples/basic_usage.py](examples/basic_usage.py)
 
+## ⚙️ 配置
+
+Drowcoder 使用 YAML 或 JSON 配置檔來管理模型、API 金鑰和其他設定。
+
+### 快速範例
+
+```yaml
+models:
+  - name: gemini
+    model: gemini/gemini-2.5-flash
+    api_key: YOUR_API_KEY
+    temperature: 0
+    roles:
+      - chatcompletions
+```
+
+### 配置管理
+
+```bash
+# 編輯預設配置檔 (~/.drowcoder/config.yaml)
+drowcoder config edit
+
+# 顯示當前配置
+drowcoder config show
+
+# 驗證配置
+drowcoder config validate
+
+# 從檔案設定預設配置
+drowcoder config set /path/to/config.yaml
+```
+
+> 📖 **需要更詳細的配置文件嗎？**包括：
+> - 完整的配置格式（YAML/JSON）
+> - 所有可用欄位和選項
+> - 模型角色和角色型分發
+> - MCP 伺服器配置
+> - 最佳實踐和範例
+>
+> 查看 **[配置指南](src/drowcoder/docs/config.zh-tw.md)** → `src/drowcoder/docs/config.zh-tw.md`
+
 ## 📚 文件
 
 ### 快速開始
@@ -107,12 +157,12 @@ agent.complete()
 
 ### 核心模組
 
-- **[進入點](src/drowcoder/docs/main.md)** - CLI 進入點（main、cli、develop、debug）
-- **[代理](src/drowcoder/docs/agent.md)** - 代理核心邏輯
-- **[檢查點](src/drowcoder/docs/checkpoint.md)** - 狀態管理系統
-- **[配置](src/drowcoder/docs/config.md)** - 配置管理
-- **[模型](src/drowcoder/docs/model.md)** - 模型分發器和角色管理
-- **[詳細輸出](src/drowcoder/docs/verbose.md)** - 輸出格式化
+- **[配置](src/drowcoder/docs/config.zh-tw.md)** ⚙️ - **配置檔管理**（YAML/JSON 格式、CLI 命令、範例）
+- **[進入點](src/drowcoder/docs/main.zh-tw.md)** - CLI 進入點（main、cli、develop、debug）
+- **[代理](src/drowcoder/docs/agent.zh-tw.md)** - 代理核心邏輯
+- **[檢查點](src/drowcoder/docs/checkpoint.zh-tw.md)** - 狀態管理系統
+- **[模型](src/drowcoder/docs/model.zh-tw.md)** - 模型分發器和角色管理
+- **[詳細輸出](src/drowcoder/docs/verbose.zh-tw.md)** - 輸出格式化
 
 ### 工具與架構
 
