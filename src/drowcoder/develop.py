@@ -7,16 +7,16 @@ during development and testing.
 """
 
 import sys
-from pathlib import Path
-from dataclasses import dataclass
-from typing import Type
+import pathlib
+from dataclasses import dataclass, field
+from typing import List, Type, Union
 
 from .main import Main, MainArgs
 
 
-def find_project_root() -> Path:
+def find_project_root() -> pathlib.Path:
     """Find the project root directory by looking for pyproject.toml"""
-    current_dir = Path.cwd()
+    current_dir = pathlib.Path.cwd()
     project_root = current_dir
 
     while project_root != project_root.parent:
@@ -29,7 +29,7 @@ def find_project_root() -> Path:
 
 @dataclass
 class DevArgs(MainArgs):
-    config     : str = str(find_project_root() / 'configs' / 'config.yaml')
+    config     : Union[str, List[Union[str, pathlib.Path]]] = field(default_factory=lambda: [str(find_project_root() / 'configs' / 'config.yaml')])
     model      : str = None
     workspace  : str = None
     checkpoint : str = None
