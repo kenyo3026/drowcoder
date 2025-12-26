@@ -31,6 +31,7 @@ configs/*
 logs/*
 materials/*
 scripts/
+stories/
 **/reports/*
 
 # test files
