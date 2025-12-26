@@ -102,7 +102,7 @@ class Main:
 
         # Regular execution
         query = args.query
-        config = args.config or cls.config
+        config = args.config
         model = args.model
         interactive = args.interactive if query else True
         workspace = args.workspace
