@@ -2,6 +2,9 @@ import os
 import platform
 from typing import List, Dict, Any, Optional
 
+from .rules import RulePromptInstruction
+
+
 SYSTEM_PROMPT_TEMPLATE = '''
 You are a powerful agentic AI coding assistant. You operate exclusively in Cursor, the world's best IDE.
 
@@ -201,6 +204,10 @@ for i in range(10):
    - This signals the iteration loop to stop
 </flow>
 
+<rules>
+{rules}
+</rules>
+
 <tools>
 {tools}
 </tools>
@@ -235,7 +242,6 @@ DO NOT make up values for or ask about optional parameters.
 Carefully analyze descriptive terms in the request as they may indicate required parameter values that should be included even if not explicitly quoted.
 '''.strip()
 
-
 class SystemPromptInstruction:
 
     system_prompt_template = SYSTEM_PROMPT_TEMPLATE
@@ -255,7 +261,12 @@ class SystemPromptInstruction:
         }
 
     @classmethod
-    def format(cls, tools: Optional[List[str]] = None, **kwargs) -> str:
+    def format(
+        cls,
+        tools: Optional[List[str]] = None,
+        rules_dir: Optional[str] = None,
+        **kwargs
+    ) -> str:
         params = {**cls._get_default_env(), **kwargs}
 
         if not tools:
@@ -264,6 +275,12 @@ class SystemPromptInstruction:
             params['tools'] = '\n'.join([cls._format_tool(tool) for tool in tools])
         else:
             params['tools'] = tools
+
+        # Load and format rules if rules_dir is provided
+        if rules_dir:
+            params['rules'] = RulePromptInstruction.format(rules_dir=rules_dir)
+        else:
+            params['rules'] = RulePromptInstruction.no_rules_placeholder
 
         return cls.system_prompt_template.format(**params)
 

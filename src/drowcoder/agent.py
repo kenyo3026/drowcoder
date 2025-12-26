@@ -50,6 +50,7 @@ class DrowAgent:
         workspace: str = None,
         tools: Optional[List[Dict[str, Any]]] = None,
         mcps: Optional[Dict[str, Any]] = None,
+        rules_dir: Optional[str] = None,
         keep_last_k_tool_call_contexts:int = 5,
         logger: Optional[logging.Logger] = None,
         checkpoint: Union[str, Checkpoint] = None,
@@ -73,6 +74,9 @@ class DrowAgent:
                    {"server_name": {"url": "...", "headers": {...}}, ...}
                 2. Nested format:
                    {"mcps": {"server_name": {"url": "...", "headers": {...}}, ...}}
+            rules_dir: Optional path to directory containing .mdc rule files.
+                If provided, rules will be loaded and integrated into system prompt.
+                Default: None (no rules loaded)
             keep_last_k_tool_call_contexts: Number of tool call contexts to keep
             logger: Optional logger instance
             checkpoint: Checkpoint directory or Checkpoint instance
@@ -127,7 +131,10 @@ class DrowAgent:
         self.iteration_so_far_without_call_tools = 0
 
         self.messages = []
-        self.system_prompt = SystemPromptInstruction.format(tools=self.tools)
+        self.system_prompt = SystemPromptInstruction.format(
+            tools=self.tools,
+            rules_dir=rules_dir
+        )
 
         self.completion_kwargs = completion_kwargs
         self.completion_kwargs.update(
