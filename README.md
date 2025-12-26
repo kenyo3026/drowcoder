@@ -1,12 +1,16 @@
 # Drowcoder
-
-🤖 Drowcoder is an autonomous, single-agent AI assistant specialized in programming, featuring a unified tool dispatcher architecture with built-in tools and MCP (Model Context Protocol) integration.
+> straightware usable
+🤖 Drowcoder is an autonomous, single-agent AI assistant CLI specialized in programming, featuring a unified tool dispatcher architecture with built-in tools and MCP (Model Context Protocol) integration.
 
 > [!TIP]
 > Although primarily focused on engineering tasks, it can also handle general questions and various MCPs with different functionalities.
 
 > [!NOTE]
 > This project is under active development. Features and APIs may change significantly.
+
+## Why Drowcoder?
+
+Drowcoder is a ground-up implementation designed for full-stack understanding. Rather than building on existing frameworks, we're building this from scratch to gain deep understanding of the entire AI agent stack—from foundation to application, with the aim of thoughtfully crafting a lean solution tailored to our specific vision and needs. And it's simply an AI agent—built to be used.
 
 ## ✨ Key Features
 
