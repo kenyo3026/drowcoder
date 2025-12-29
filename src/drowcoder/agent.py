@@ -78,9 +78,11 @@ class DrowAgent:
                    {"server_name": {"url": "...", "headers": {...}}, ...}
                 2. Nested format:
                    {"mcps": {"server_name": {"url": "...", "headers": {...}}, ...}}
-            rules_dir: Optional path to directory containing .mdc rule files.
-                If provided, rules will be loaded and integrated into system prompt.
-                Default: None (no rules loaded)
+            rules: Optional path(s) to rule file(s) or directory(ies) containing .mdc files.
+                Can be a single path (str or pathlib.Path) or a list of paths.
+                Default: workspace/.drowcoder/rules directory is always included unless disabled.
+            disable_rules: If True, disable all rule loading (including default workspace rules).
+                Default: False
             keep_last_k_tool_call_contexts: Number of tool call contexts to keep
             logger: Optional logger instance
             checkpoint: Checkpoint directory or Checkpoint instance
@@ -92,18 +94,7 @@ class DrowAgent:
         self.logger = logger or logging.getLogger(__name__)
 
         self.setup_workspace(workspace)
-
-        self.rules = [pathlib.Path(self.workspace) / DROWAGENT_RULES_DIR]
-        if rules:
-            if isinstance(rules, list):
-                self.rules.extend(pathlib.Path(rule) for rule in rules)
-            elif isinstance(rules, (str, pathlib.Path)):
-                self.rules.append(pathlib.Path(rules))
-            else:
-                raise TypeError(
-                    f"rules must be str, pathlib.Path, or List[str, pathlib.Path], "
-                    f"got {type(rules).__name__}"
-                )
+        self.setup_rules(rules, disable_rules)
 
         self.checkpoint = checkpoint
         if isinstance(self.checkpoint, str) or self.checkpoint is None:
@@ -198,6 +189,30 @@ class DrowAgent:
             raise PermissionError(f"No read/write access to workspace: {workspace}")
 
         self.workspace = workspace
+
+    def setup_rules(
+        self,
+        rules: Optional[Union[str, pathlib.Path, List[Union[str, pathlib.Path]]]] = None,
+        disable_rules: bool = False
+    ):
+        if disable_rules:
+            # When rules are disabled, use empty list
+            self.rules = []
+        else:
+            # Start with default workspace rules directory
+            self.rules = [pathlib.Path(self.workspace) / DROWAGENT_RULES_DIR]
+
+            # Add user-provided rules if any
+            if rules:
+                if isinstance(rules, list):
+                    self.rules.extend(pathlib.Path(rule) for rule in rules)
+                elif isinstance(rules, (str, pathlib.Path)):
+                    self.rules.append(pathlib.Path(rules))
+                else:
+                    raise TypeError(
+                        f"rules must be str, pathlib.Path, or List[str, pathlib.Path], "
+                        f"got {type(rules).__name__}"
+                    )
 
     def call_tool(self, tool_calls:List[litellm.types.utils.ChatCompletionMessageToolCall]):
         tool_call_group_id = generate_unique_id(length=8)
