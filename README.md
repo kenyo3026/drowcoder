@@ -18,6 +18,7 @@ Drowcoder is a ground-up implementation designed for full-stack understanding. R
 - **🌐 MCP Integration**: Support for both Streamable HTTP and Stdio transports
 - **🔀 Unified Dispatcher**: Seamless integration of built-in tools and MCP servers
 - **📦 Extensible**: Easy to add custom tools by extending `BaseTool`
+- **📋 Rule System**: Flexible workspace rules with support for files, directories, and lists (`.mdc` format)
 - **💾 Checkpoint System**: Persistent state management across sessions
 - **⚙️ Flexible Configuration**: YAML/JSON configuration with role-based model management ([see configuration guide](src/drowcoder/docs/config.md))
 - **🚀 Multiple Entry Points**: CLI, development mode, and library usage
@@ -75,6 +76,9 @@ drowcoder --workspace /path/to/your/project
 # Use specific configuration
 drowcoder --config /path/to/config.yaml
 
+# Disable rules loading
+drowcoder --disable_rules
+
 # Manage configuration
 drowcoder config edit    # Edit default config
 drowcoder config show    # Show current config
@@ -95,6 +99,8 @@ agent = DrowAgent(
     workspace="/path/to/project",
     tools=None,  # Use default built-in tools
     mcps=None,   # Optional: MCP server configs
+    rules=None,  # Optional: Custom rules (file/dir/list)
+    disable_rules=False,  # Set True to disable all rules
     model="gpt-4",
     api_key="your-api-key"
 )
@@ -124,6 +130,12 @@ models:
     temperature: 0
     roles:
       - chatcompletions
+
+# Optional: Custom rules configuration
+rules:
+  - .drowcoder/rules        # Directory
+  - custom_rule.mdc         # Single file
+  - /path/to/rules_dir      # Absolute path
 ```
 
 ### Configuration Management
