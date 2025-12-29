@@ -15,6 +15,9 @@ from .utils.logger import OutputCapture
 from .utils.unique_id import generate_unique_id
 
 
+DROWAGENT_DIR = pathlib.Path('.drowcoder')
+DROWAGENT_RULES_DIR = DROWAGENT_DIR / 'rules'
+
 @dataclass(frozen=True)
 class AgentRole:
     SYSTEM    :str = 'system'
@@ -50,7 +53,8 @@ class DrowAgent:
         workspace: str = None,
         tools: Optional[List[Dict[str, Any]]] = None,
         mcps: Optional[Dict[str, Any]] = None,
-        rules_dir: Optional[str] = None,
+        rules: Optional[Union[str, pathlib.Path, List[Union[str, pathlib.Path]]]] = None,
+        disable_rules: bool = False,
         keep_last_k_tool_call_contexts:int = 5,
         logger: Optional[logging.Logger] = None,
         checkpoint: Union[str, Checkpoint] = None,
@@ -88,6 +92,18 @@ class DrowAgent:
         self.logger = logger or logging.getLogger(__name__)
 
         self.setup_workspace(workspace)
+
+        self.rules = [pathlib.Path(self.workspace) / DROWAGENT_RULES_DIR]
+        if rules:
+            if isinstance(rules, list):
+                self.rules.extend(pathlib.Path(rule) for rule in rules)
+            elif isinstance(rules, (str, pathlib.Path)):
+                self.rules.append(pathlib.Path(rules))
+            else:
+                raise TypeError(
+                    f"rules must be str, pathlib.Path, or List[str, pathlib.Path], "
+                    f"got {type(rules).__name__}"
+                )
 
         self.checkpoint = checkpoint
         if isinstance(self.checkpoint, str) or self.checkpoint is None:
@@ -133,7 +149,7 @@ class DrowAgent:
         self.messages = []
         self.system_prompt = SystemPromptInstruction.format(
             tools=self.tools,
-            rules_dir=rules_dir
+            rules=self.rules,
         )
 
         self.completion_kwargs = completion_kwargs

@@ -41,6 +41,7 @@ class MainArgs:
     workspace   :str  = None
     checkpoint  :str  = None
     checkpoint_root :str = './checkpoints'
+    disable_rules :bool = False
 
     # Subcommands
     command    :str=None
@@ -59,6 +60,7 @@ class MainArgs:
         parser.add_argument("-w", "--workspace", default=cls.workspace, help="Workspace directory")
         parser.add_argument("--checkpoint", default=cls.checkpoint, help="Checkpoint directory")
         parser.add_argument("--checkpoint_root", default=cls.checkpoint_root, help="Checkpoint root directory")
+        parser.add_argument("--disable_rules", action="store_true", dest="disable_rules", help="Disable loading rules from .cursor/rules directory")
 
         # Setup secondary commands
         subparsers = parser.add_subparsers(dest='command', help='Available commands')
@@ -107,6 +109,7 @@ class Main:
         interactive = args.interactive if query else True
         workspace = args.workspace
         checkpoint = args.checkpoint
+        disable_rules = args.disable_rules
 
         checkpoint = Checkpoint(checkpoint)
 
@@ -137,6 +140,7 @@ class Main:
 
         tools = config_morpher.fetch('tools', None)
         mcps = config_morpher.fetch('mcps', None)
+        rules = config_morpher.fetch('rules', None)
 
         try:
             # Create and initialize agent
@@ -144,6 +148,8 @@ class Main:
                 workspace=workspace,
                 tools=tools,
                 mcps=mcps,
+                rules=rules,
+                disable_rules=disable_rules,
                 checkpoint=checkpoint,
                 logger=logger,
                 **completion_kwargs,

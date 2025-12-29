@@ -264,7 +264,7 @@ class SystemPromptInstruction:
     def format(
         cls,
         tools: Optional[List[str]] = None,
-        rules_dir: Optional[str] = None,
+        rules: Optional[str] = None,
         **kwargs
     ) -> str:
         params = {**cls._get_default_env(), **kwargs}
@@ -277,8 +277,8 @@ class SystemPromptInstruction:
             params['tools'] = tools
 
         # Load and format rules if rules_dir is provided
-        if rules_dir:
-            params['rules'] = RulePromptInstruction.format(rules_dir=rules_dir)
+        if rules:
+            params['rules'] = RulePromptInstruction.format(rules=rules)
         else:
             params['rules'] = RulePromptInstruction.no_rules_placeholder
 
