@@ -44,5 +44,6 @@ test_*.py
 # TODO (root directory only)
 /TODO.md
 
-# .drowignore
+# .drow
 .drowignore
+.drowcoder
