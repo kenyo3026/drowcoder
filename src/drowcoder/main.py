@@ -13,10 +13,9 @@ import traceback
 from dataclasses import dataclass, field
 from typing import List, Type, Union
 
-import litellm
 from config_morpher import ConfigMorpher
 
-from .agent import DrowAgent
+from .agent import DrowAgent, litellm
 from .checkpoint import Checkpoint, CHECKPOINT_DEFAULT_NAME
 from .config import ConfigMain, ConfigCommand
 from .model import ModelDispatcher

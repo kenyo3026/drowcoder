@@ -8,7 +8,6 @@ before continuing to the next step.
 
 import sys
 import yaml
-import litellm
 from dataclasses import dataclass
 from typing import Type, Tuple
 
@@ -16,7 +15,7 @@ from config_morpher import ConfigMorpher
 
 from .main import Main
 from .develop import DevArgs
-from .agent import DrowAgent
+from .agent import DrowAgent, litellm
 from .checkpoint import Checkpoint
 from .model import ModelDispatcher
 from .utils.logger import enable_rich_logger
