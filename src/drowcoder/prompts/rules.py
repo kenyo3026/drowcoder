@@ -1,11 +1,13 @@
-import os
 import re
+import logging
 import pathlib
 from typing import Any, Dict, List, Union, Optional
 from dataclasses import dataclass
 
 
 VALID_RULE_EXTENSIONS = {'.mdc'}
+
+logger = logging.getLogger(__name__)
 
 @dataclass
 class MDCRule:
@@ -113,14 +115,14 @@ class RulePromptInstruction:
 
         Raises:
             FileNotFoundError: If directory does not exist
-            ValueError: If file cannot be parsed
+            ValueError: If path is not a directory or contains invalid MDC files
         """
         rules_path = pathlib.Path(rules_dir).resolve()
         if not rules_path.exists():
-            raise FileNotFoundError(f"Rules directory does not exist: {rules_path}")
+            raise FileNotFoundError(f"Rule {rules_path} failed to initialize (directory does not exist) -> skip")
 
         if not rules_path.is_dir():
-            raise ValueError(f"Rules path is not a directory: {rules_path}")
+            raise ValueError(f"Rule {rules_path} failed to initialize (not a directory) -> skip")
 
         rules = {}
 
@@ -131,7 +133,7 @@ class RulePromptInstruction:
                 file_path = str(mdc_file.resolve())
                 rules[file_path] = rule_content
             except Exception as e:
-                raise ValueError(f"Failed to parse rule file {mdc_file}: {str(e)}")
+                raise ValueError(f"Rule {mdc_file} failed to initialize (invalid MDC file: {str(e)}) -> skip")
 
         return rules
 
@@ -148,27 +150,24 @@ class RulePromptInstruction:
 
         Raises:
             FileNotFoundError: If file does not exist
-            ValueError: If file extension is invalid or parsing fails
+            ValueError: If path is not a file, has invalid extension, or parse fails
         """
         rule_path = pathlib.Path(rule_path).resolve()
 
         if not rule_path.exists():
-            raise FileNotFoundError(f"Rule file does not exist: {rule_path}")
+            raise FileNotFoundError(f"Rule {rule_path} failed to initialize (file does not exist) -> skip")
 
         if not rule_path.is_file():
-            raise ValueError(f"Rule path is not a file: {rule_path}")
+            raise ValueError(f"Rule {rule_path} failed to initialize (not a file) -> skip")
 
         if rule_path.suffix not in VALID_RULE_EXTENSIONS:
-            raise ValueError(
-                f"Rule file must have one of these extensions: {VALID_RULE_EXTENSIONS}, "
-                f"got: {rule_path.suffix}"
-            )
+            raise ValueError(f"Rule {rule_path} failed to initialize (invalid extension, expected {VALID_RULE_EXTENSIONS}, got {rule_path.suffix}) -> skip")
 
         try:
             content = rule_path.read_text(encoding='utf-8')
             rule_content: MDCRule = MDCParser.parse(content)
         except Exception as e:
-            raise ValueError(f"Failed to parse rule file {rule_path}: {str(e)}")
+            raise ValueError(f"Rule {rule_path} failed to initialize (parse failed: {str(e)}) -> skip")
 
         return {str(rule_path): rule_content}
 
@@ -197,22 +196,31 @@ class RulePromptInstruction:
             rules = [rules]
 
         rule_path_to_content = {}
+        errors = []
+
         for rule in rules:
             rule_path = pathlib.Path(rule)
 
-            # Check if path exists first
-            if not rule_path.exists():
-                raise FileNotFoundError(f"Rule path does not exist: {rule_path}")
+            try:
+                # Handle directory or file
+                if rule_path.is_dir():
+                    rule_path_to_content.update(cls._load_from_directory(rule_path))
 
-            # Handle directory or file
-            if rule_path.is_dir():
-                rule_path_to_content.update(cls._load_from_directory(rule_path))
-            elif rule_path.is_file():
-                rule_path_to_content.update(cls._load(rule_path))
-            else:
-                raise ValueError(
-                    f"Rule path is neither a directory nor a regular file: {rule_path}"
-                )
+                elif rule_path.is_file():
+                    rule_path_to_content.update(cls._load(rule_path))
+
+                elif rule_path.exists():
+                    raise ValueError(f"Rule {rule_path} failed to initialize (invalid path type) -> skip")
+                else:
+                    raise FileNotFoundError(f"Rule {rule_path} failed to initialize (path does not exist) -> skip")
+            except (FileNotFoundError, ValueError) as e:
+                # Collect errors but continue processing other rules
+                errors.append(str(e))
+                continue
+
+        # If there were errors, raise them all at once
+        if errors:
+            raise ValueError("\n".join(errors))
 
         always_applied = []
         requestable = []

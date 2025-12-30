@@ -13,6 +13,7 @@ from .tools.dispatcher import Dispatcher
 from .verbose import *
 from .utils.logger import OutputCapture
 from .utils.unique_id import generate_unique_id
+from .utils.error_handler import suppress_errors
 
 
 DROWAGENT_DIR = pathlib.Path('.drowcoder')
@@ -138,10 +139,12 @@ class DrowAgent:
         self.iteration_so_far_without_call_tools = 0
 
         self.messages = []
-        self.system_prompt = SystemPromptInstruction.format(
-            tools=self.tools,
-            rules=self.rules,
-        )
+        self.system_prompt = ''
+        with suppress_errors(self.logger):
+            self.system_prompt = SystemPromptInstruction.format(
+                tools=self.tools,
+                rules=self.rules,
+            )
 
         self.completion_kwargs = completion_kwargs
         self.completion_kwargs.update(
