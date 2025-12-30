@@ -109,11 +109,18 @@ class RulePromptInstruction:
             rules_dir: Path to directory containing .mdc files
 
         Returns:
-            Tuple of (list of parsed MDCRule objects, list of file paths)
+            Dict of (file_path -> MDCRule)
+
+        Raises:
+            FileNotFoundError: If directory does not exist
+            ValueError: If file cannot be parsed
         """
         rules_path = pathlib.Path(rules_dir).resolve()
         if not rules_path.exists():
-            return {}
+            raise FileNotFoundError(f"Rules directory does not exist: {rules_path}")
+
+        if not rules_path.is_dir():
+            raise ValueError(f"Rules path is not a directory: {rules_path}")
 
         rules = {}
 
@@ -124,22 +131,44 @@ class RulePromptInstruction:
                 file_path = str(mdc_file.resolve())
                 rules[file_path] = rule_content
             except Exception as e:
-                # Skip files that cannot be parsed
-                continue
+                raise ValueError(f"Failed to parse rule file {mdc_file}: {str(e)}")
 
         return rules
 
     @staticmethod
     def _load(rule_path: Union[str, pathlib.Path]) -> Dict[str, MDCRule]:
+        """
+        Load a single rule file.
+
+        Args:
+            rule_path: Path to .mdc rule file
+
+        Returns:
+            Dict of (file_path -> MDCRule)
+
+        Raises:
+            FileNotFoundError: If file does not exist
+            ValueError: If file extension is invalid or parsing fails
+        """
         rule_path = pathlib.Path(rule_path).resolve()
+
         if not rule_path.exists():
-            return {}
+            raise FileNotFoundError(f"Rule file does not exist: {rule_path}")
 
-        if rule_path.suffix != VALID_RULE_EXTENSIONS:
-            raise ValueError(f"Rule file must have {VALID_RULE_EXTENSIONS} extension, got: {rule_path.suffix}")
+        if not rule_path.is_file():
+            raise ValueError(f"Rule path is not a file: {rule_path}")
 
-        content = rule_path.read_text(encoding='utf-8')
-        rule_content: MDCRule = MDCParser.parse(content)
+        if rule_path.suffix not in VALID_RULE_EXTENSIONS:
+            raise ValueError(
+                f"Rule file must have one of these extensions: {VALID_RULE_EXTENSIONS}, "
+                f"got: {rule_path.suffix}"
+            )
+
+        try:
+            content = rule_path.read_text(encoding='utf-8')
+            rule_content: MDCRule = MDCParser.parse(content)
+        except Exception as e:
+            raise ValueError(f"Failed to parse rule file {rule_path}: {str(e)}")
 
         return {str(rule_path): rule_content}
 
@@ -170,16 +199,16 @@ class RulePromptInstruction:
         rule_path_to_content = {}
         for rule in rules:
             rule_path = pathlib.Path(rule)
+
+            # Check if path exists first
+            if not rule_path.exists():
+                raise FileNotFoundError(f"Rule path does not exist: {rule_path}")
+
+            # Handle directory or file
             if rule_path.is_dir():
                 rule_path_to_content.update(cls._load_from_directory(rule_path))
             elif rule_path.is_file():
-                if rule_path.suffix in VALID_RULE_EXTENSIONS:
-                    rule_path_to_content.update(cls._load(rule_path))
-                else:
-                    raise ValueError(
-                        f"Rule file must have one of these extensions: {VALID_RULE_EXTENSIONS}, "
-                        f"got: {rule_path.suffix} (file: {rule_path})"
-                    )
+                rule_path_to_content.update(cls._load(rule_path))
             else:
                 raise ValueError(
                     f"Rule path is neither a directory nor a regular file: {rule_path}"
