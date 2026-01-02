@@ -139,12 +139,25 @@ class DrowAgent:
         self.iteration_so_far_without_call_tools = 0
 
         self.messages = []
-        self.system_prompt = ''
-        with suppress_errors(self.logger):
-            self.system_prompt = SystemPromptInstruction.format(
-                tools=self.tools,
-                rules=self.rules,
-            )
+        self.system_prompt, format_details = SystemPromptInstruction.format(
+            tools=self.tools,
+            rules=self.rules,
+            return_details=True,
+        )
+
+        # Log rule initialization details
+        workspace_path = pathlib.Path(self.workspace).resolve()
+        for rule_path, status in format_details.rules.items():
+            rule_pathlib = pathlib.Path(rule_path)
+            try:
+                display_path = rule_pathlib.relative_to(workspace_path)
+            except ValueError:
+                display_path = rule_pathlib
+
+            if status is True:
+                self.logger.info(f"Rule {display_path} initialized")
+            else:
+                self.logger.warning(f"Rule {display_path} failed to initialize ({status}) -> skip")
 
         self.completion_kwargs = completion_kwargs
         self.completion_kwargs.update(

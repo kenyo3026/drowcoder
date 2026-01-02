@@ -1,7 +1,7 @@
 import re
 import logging
 import pathlib
-from typing import Any, Dict, List, Union, Optional
+from typing import Any, Dict, List, Union, Optional, Tuple
 from dataclasses import dataclass
 
 
@@ -119,10 +119,10 @@ class RulePromptInstruction:
         """
         rules_path = pathlib.Path(rules_dir).resolve()
         if not rules_path.exists():
-            raise FileNotFoundError(f"Rule {rules_path} failed to initialize (directory does not exist) -> skip")
+            raise FileNotFoundError(f"directory does not exist")
 
         if not rules_path.is_dir():
-            raise ValueError(f"Rule {rules_path} failed to initialize (not a directory) -> skip")
+            raise ValueError(f"not a directory")
 
         rules = {}
 
@@ -133,7 +133,7 @@ class RulePromptInstruction:
                 file_path = str(mdc_file.resolve())
                 rules[file_path] = rule_content
             except Exception as e:
-                raise ValueError(f"Rule {mdc_file} failed to initialize (invalid MDC file: {str(e)}) -> skip")
+                raise ValueError(f"invalid MDC file: {str(e)}")
 
         return rules
 
@@ -155,19 +155,19 @@ class RulePromptInstruction:
         rule_path = pathlib.Path(rule_path).resolve()
 
         if not rule_path.exists():
-            raise FileNotFoundError(f"Rule {rule_path} failed to initialize (file does not exist) -> skip")
+            raise FileNotFoundError(f"file does not exist")
 
         if not rule_path.is_file():
-            raise ValueError(f"Rule {rule_path} failed to initialize (not a file) -> skip")
+            raise ValueError(f"not a file")
 
         if rule_path.suffix not in VALID_RULE_EXTENSIONS:
-            raise ValueError(f"Rule {rule_path} failed to initialize (invalid extension, expected {VALID_RULE_EXTENSIONS}, got {rule_path.suffix}) -> skip")
+            raise ValueError(f"invalid extension, expected {VALID_RULE_EXTENSIONS}, got {rule_path.suffix}")
 
         try:
             content = rule_path.read_text(encoding='utf-8')
             rule_content: MDCRule = MDCParser.parse(content)
         except Exception as e:
-            raise ValueError(f"Rule {rule_path} failed to initialize (parse failed: {str(e)}) -> skip")
+            raise ValueError(f"parse failed: {str(e)}")
 
         return {str(rule_path): rule_content}
 
@@ -175,20 +175,27 @@ class RulePromptInstruction:
     def format(
         cls,
         rules: Optional[Union[str, pathlib.Path, List[Union[str, pathlib.Path]]]] = None,
+        return_details: bool = False,
         **kwargs
-    ) -> str:
+    ) -> Union[str, Tuple[str, Dict[str, Optional[str]]]]:
         """
         Format rules into prompt template.
 
         Args:
             rules: Path(s) to rule file(s) or directory(ies) containing .mdc files.
                 Can be a single path (str or pathlib.Path) or a list of paths.
+            return_details: If True, return (result, details) tuple where details contains
+                success/failure status for each rule.
             **kwargs: Additional template parameters
 
         Returns:
-            Formatted rules prompt string
+            If return_details=False: Formatted rules prompt string
+            If return_details=True: Tuple of (formatted string, details dict)
+                details dict format: {rule_path: True (success) or error_message (failure)}
         """
         if rules is None:
+            if return_details:
+                return '', {}
             return ''
 
         # Normalize to list: convert single value to list for uniform processing
@@ -196,7 +203,7 @@ class RulePromptInstruction:
             rules = [rules]
 
         rule_path_to_content = {}
-        errors = []
+        details = {}
 
         for rule in rules:
             rule_path = pathlib.Path(rule)
@@ -204,23 +211,29 @@ class RulePromptInstruction:
             try:
                 # Handle directory or file
                 if rule_path.is_dir():
-                    rule_path_to_content.update(cls._load_from_directory(rule_path))
+                    loaded_rules = cls._load_from_directory(rule_path)
+                    rule_path_to_content.update(loaded_rules)
+                    # Mark all loaded rules as successful
+                    for loaded_path in loaded_rules.keys():
+                        details[loaded_path] = True
 
                 elif rule_path.is_file():
-                    rule_path_to_content.update(cls._load(rule_path))
+                    loaded_rules = cls._load(rule_path)
+                    rule_path_to_content.update(loaded_rules)
+                    # Mark loaded rule as successful
+                    for loaded_path in loaded_rules.keys():
+                        details[loaded_path] = True
 
                 elif rule_path.exists():
-                    raise ValueError(f"Rule {rule_path} failed to initialize (invalid path type) -> skip")
+                    error_msg = f"invalid path type"
+                    details[str(rule_path)] = error_msg
                 else:
-                    raise FileNotFoundError(f"Rule {rule_path} failed to initialize (path does not exist) -> skip")
+                    error_msg = f"path does not exist"
+                    details[str(rule_path)] = error_msg
             except (FileNotFoundError, ValueError) as e:
-                # Collect errors but continue processing other rules
-                errors.append(str(e))
+                # Record failure in details
+                details[str(rule_path)] = str(e)
                 continue
-
-        # If there were errors, raise them all at once
-        if errors:
-            raise ValueError("\n".join(errors))
 
         always_applied = []
         requestable = []
@@ -235,7 +248,12 @@ class RulePromptInstruction:
             'requestable_rules': '\n'.join(requestable) if requestable else cls.no_rules_placeholder,
             **kwargs
         }
-        return cls.rule_prompt_template.format(**params)
+
+        result = cls.rule_prompt_template.format(**params)
+
+        if return_details:
+            return result, details
+        return result
 
 
 if __name__ == "__main__":

@@ -1,6 +1,7 @@
 import os
 import platform
-from typing import List, Dict, Any, Optional
+from dataclasses import dataclass, field
+from typing import List, Dict, Any, Optional, Union, Tuple
 
 from .rules import RulePromptInstruction
 
@@ -242,6 +243,11 @@ DO NOT make up values for or ask about optional parameters.
 Carefully analyze descriptive terms in the request as they may indicate required parameter values that should be included even if not explicitly quoted.
 '''.strip()
 
+
+@dataclass
+class SystemPromptFormatDetails:
+    rules: Dict = field(default_factory=dict)
+
 class SystemPromptInstruction:
 
     system_prompt_template = SYSTEM_PROMPT_TEMPLATE
@@ -265,8 +271,24 @@ class SystemPromptInstruction:
         cls,
         tools: Optional[List[str]] = None,
         rules: Optional[str] = None,
+        return_details: bool = False,
         **kwargs
-    ) -> str:
+    ) -> Union[str, Tuple[str, 'SystemPromptFormatDetails']]:
+        """
+        Format system prompt template.
+
+        Args:
+            tools: List of tool schemas or formatted tool string
+            rules: Path(s) to rule file(s) or directory(ies)
+            return_details: If True, return (result, details) tuple where details contains
+                success/failure status for each rule.
+            **kwargs: Additional template parameters
+
+        Returns:
+            If return_details=False: Formatted system prompt string
+            If return_details=True: Tuple of (formatted string, SystemPromptFormatDetails)
+                SystemPromptFormatDetails.rules format: {rule_path: True (success) or error_message (failure)}
+        """
         params = {**cls._get_default_env(), **kwargs}
 
         if not tools:
@@ -277,12 +299,22 @@ class SystemPromptInstruction:
             params['tools'] = tools
 
         # Load and format rules if rules_dir is provided
+        format_details = SystemPromptFormatDetails()
         if rules:
-            params['rules'] = RulePromptInstruction.format(rules=rules)
+            if return_details:
+                params['rules'], format_details.rules = RulePromptInstruction.format(rules=rules, return_details=True)
+            else:
+                params['rules'] = RulePromptInstruction.format(rules=rules, return_details=False)
         else:
             params['rules'] = RulePromptInstruction.no_rules_placeholder
 
-        return cls.system_prompt_template.format(**params)
+        try:
+            result = cls.system_prompt_template.format(**params)
+            if return_details:
+                return result, format_details
+            return result
+        except Exception as e:
+            raise RuntimeError(f"Failed to format system prompt: {str(e)}")
 
 
 if __name__ == "__main__":
