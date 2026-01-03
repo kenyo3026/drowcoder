@@ -137,7 +137,7 @@ tools:
           todos:
             type: array
             description: Array of todo items to write to the workspace
-            minItems: 2,
+            minItems: 2
             items:
               type: object
               properties:
@@ -159,6 +159,6 @@ tools:
                 - content
                 - status
                 - id
-    required:
-      - merge
-      - todos
+        required:
+          - merge
+          - todos
