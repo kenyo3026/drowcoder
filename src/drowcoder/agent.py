@@ -19,6 +19,13 @@ from .utils.error_handler import suppress_errors
 DROWAGENT_DIR = pathlib.Path('.drowcoder')
 DROWAGENT_RULES_DIR = DROWAGENT_DIR / 'rules'
 
+# Placeholder content for pruned tool responses
+PRUNED_TOOL_CONTENT = (
+    "[Tool response content has been pruned from context to manage token usage. "
+    "The key information from this tool call has been summarized in the following assistant messages. "
+    "Refer to the recent context for relevant details.]"
+)
+
 @dataclass(frozen=True)
 class AgentRole:
     SYSTEM    :str = 'system'
@@ -315,11 +322,20 @@ class DrowAgent:
         messages = self._prepare_messages(self.messages, last_k_tool_call_group=self.keep_last_k_tool_call_contexts)
 
         response = litellm.completion(messages=messages, **completion_kwargs)
-        message = response.choices[0].message
 
-        if all(getattr(message, attr, None) is None for attr in ['content', 'tool_calls', 'thinking_blocks']):
-            finish_reason = response.choices[0].finish_reason or 'unknown'
-            message.content = f"Empty response. Finish reason: {finish_reason}"
+        if not response.choices or len(response.choices) == 0:
+            from litellm.types.utils import Message
+            finish_reason = 'empty_choices'
+            message = Message(
+                role="assistant",
+                content=f"Empty choices in response. Finish reason: {finish_reason}"
+            )
+        else:
+            message = response.choices[0].message
+
+            if all(getattr(message, attr, None) is None for attr in ['content', 'tool_calls', 'thinking_blocks']):
+                finish_reason = response.choices[0].finish_reason or 'unknown'
+                message.content = f"Empty message content in response. Finish reason: {finish_reason}"
 
         self.messages.append(message.__dict__)
 
@@ -389,24 +405,47 @@ class DrowAgent:
         return messages
 
     def _prepare_tool_messages(self, messages, last_k_tool_call_group:int=1, **kwargs):
-        if last_k_tool_call_group > 0:
-            last_k_tool_call_group = min(last_k_tool_call_group, len(self.tool_call_group_ids))
+        """
+        Replace tool message content with placeholder for old tool call groups.
+        Keeps the most recent k tool call groups with full content.
 
-            _group_id_for_break = self.tool_call_group_ids[-last_k_tool_call_group]
-            _messages_for_llm, _flag_for_pop = [], True
-            for message in messages:
-                if message.get('role') == AgentRole.TOOL and message.get('tool_call_group_id') == _group_id_for_break:
-                    _flag_for_pop = False
-                if message.get('role') == AgentRole.TOOL and _flag_for_pop:
-                    continue
-                _messages_for_llm.append(message)
-            return _messages_for_llm
+        Args:
+            messages: List of message dictionaries
+            last_k_tool_call_group: Number of recent tool call groups to keep with full content
+                - Positive integer: Keep last k groups with full content, prune older ones
+                - 0: Prune all tool message content (replace with placeholder)
+                - -1: Keep all tool messages with full content
 
-        elif last_k_tool_call_group == 0:  # ignore all tool messages for llm
-            return [message for message in messages if message.get('role') != AgentRole.TOOL]
-
-        elif last_k_tool_call_group == -1: # keep all tool messages for llm
+        Returns:
+            List of processed messages
+        """
+        if last_k_tool_call_group == -1:  # keep all
             return messages
 
+        if last_k_tool_call_group < -1:
+            raise ValueError(f"Invalid last_k_tool_call_group: {last_k_tool_call_group}. Must be >= -1.")
+
+        # Determine which group_ids to keep with full content
+        if last_k_tool_call_group == 0:
+            keep_group_ids = set()  # Empty set, prune all tool content
         else:
-            raise ValueError(f"Invalid last_k_tool_call_group: {last_k_tool_call_group}. Must be > 0 or -1.")
+            last_k_tool_call_group = min(last_k_tool_call_group, len(self.tool_call_group_ids))
+            keep_group_ids = set(self.tool_call_group_ids[-last_k_tool_call_group:])
+
+        # Process messages
+        pruned_messages = []
+        for message in messages:
+            if message.get('role') == AgentRole.TOOL:
+                group_id = message.get('tool_call_group_id')
+                if group_id not in keep_group_ids:
+                    # Prune: replace content with placeholder
+                    pruned_message = message.copy()
+                    pruned_message['content'] = PRUNED_TOOL_CONTENT
+                    pruned_messages.append(pruned_message)
+                else:
+                    # Keep full content
+                    pruned_messages.append(message)
+            else:
+                pruned_messages.append(message)
+
+        return pruned_messages

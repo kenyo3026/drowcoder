@@ -160,7 +160,17 @@ class DebugMain(Main):
         response = litellm.completion(messages=messages, **completion_kwargs)
         response_dict = response.to_dict()
 
-        message = response.choices[0].message
+        # Check if choices is empty
+        if not response.choices or len(response.choices) == 0:
+            from litellm.types.utils import Message
+            finish_reason = 'empty_choices'
+            message = Message(
+                role="assistant",
+                content=f"Empty response. Finish reason: {finish_reason}"
+            )
+        else:
+            message = response.choices[0].message
+
         agent.messages.append(message.__dict__)
 
         # Save to checkpoint
