@@ -315,11 +315,20 @@ class DrowAgent:
         messages = self._prepare_messages(self.messages, last_k_tool_call_group=self.keep_last_k_tool_call_contexts)
 
         response = litellm.completion(messages=messages, **completion_kwargs)
-        message = response.choices[0].message
 
-        if all(getattr(message, attr, None) is None for attr in ['content', 'tool_calls', 'thinking_blocks']):
-            finish_reason = response.choices[0].finish_reason or 'unknown'
-            message.content = f"Empty response. Finish reason: {finish_reason}"
+        if not response.choices or len(response.choices) == 0:
+            from litellm.types.utils import Message
+            finish_reason = 'empty_choices'
+            message = Message(
+                role="assistant",
+                content=f"Empty choices in response. Finish reason: {finish_reason}"
+            )
+        else:
+            message = response.choices[0].message
+
+            if all(getattr(message, attr, None) is None for attr in ['content', 'tool_calls', 'thinking_blocks']):
+                finish_reason = response.choices[0].finish_reason or 'unknown'
+                message.content = f"Empty message content in response. Finish reason: {finish_reason}"
 
         self.messages.append(message.__dict__)
 
