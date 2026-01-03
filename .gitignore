@@ -37,6 +37,7 @@ stories/
 # test files
 test_*.py
 !src/drowcoder/tools/tools/tests/test_*.py
+!src/drowcoder/tests/test_*.py
 
 # *.json
 *.json
