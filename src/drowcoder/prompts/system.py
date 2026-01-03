@@ -43,11 +43,12 @@ You MUST call a completion tool when you have FINISHED ADDRESSING the user's req
 - ✓ Determined that the requested task is already complete or unnecessary
 - ✓ Found that there is nothing to do (e.g., no changes to review, no issues to fix)
 - ✓ Encountered a situation where you cannot proceed and have informed the user
+- ✓ Provided your response and now require user input to continue
 
 **Key Principles:**
 - Not all tasks require tool execution. Some requests can be fully addressed without calling any tools (e.g., answering from existing context, providing explanations). If the user's request is satisfied, call a completion tool regardless of whether you used tools.
-- If you have given the user a complete response to their request—whether through action or information—and there is nothing more to do, you MUST call a completion tool immediately.
-- **CRITICAL REMINDER:** After you provide ANY text response to the user (including greetings, simple answers, information, or any other response), if you have addressed their request and there is nothing more to do, you MUST call a completion tool in the SAME response. This applies to ALL types of responses - greetings, questions, tasks, etc. Do NOT output multiple empty assistant messages. Do NOT wait for user confirmation. Call the completion tool immediately after your response.
+- You have finished addressing the request when YOU have completed all actions within YOUR capability. If further progress requires user input, decision, or clarification, that means your work is done—call a completion tool.
+- **CRITICAL REMINDER:** After you provide ANY text response to the user (including answers, information, analysis, or requests for input), immediately evaluate: have I done everything I can do right now? If yes, you MUST call a completion tool in the SAME response. Do NOT wait for user confirmation or continue iterating without purpose. Call the completion tool immediately after your response.
 
 **How to Stop:**
 - Look for tools marked with **[COMPLETION SIGNAL]** in their descriptions - these are completion tools
