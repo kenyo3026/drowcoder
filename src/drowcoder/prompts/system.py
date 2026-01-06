@@ -1,5 +1,5 @@
 import os
-import platform
+import json
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional, Union, Tuple
 
@@ -254,7 +254,16 @@ class SystemPromptInstruction:
     system_prompt_template = SYSTEM_PROMPT_TEMPLATE
 
     @staticmethod
-    def _format_tool(tool_schema: str) -> str:
+    def _format_tool(tool_schema: Union[str, Dict[str, Any]]) -> str:
+
+        if isinstance(tool_schema, str):
+            tool_schema = json.loads(tool_schema)
+            tool_schema = json.dumps(tool_schema, indent=4, ensure_ascii=False)
+        elif isinstance(tool_schema, dict):
+            tool_schema = json.dumps(tool_schema, indent=4, ensure_ascii=False)
+        else:
+            raise TypeError(f"tool_schema must be dict or str, got {type(tool_schema).__name__}")
+
         return f'<tool>\n{tool_schema}\n</tool>'
 
     @staticmethod
