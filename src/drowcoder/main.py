@@ -20,10 +20,13 @@ from .checkpoint import Checkpoint, CHECKPOINT_DEFAULT_NAME
 from .config import ConfigMain, ConfigCommand
 from .model import ModelDispatcher
 from .prompts import InstructionType
+from .tools.tools import ToolFactory, ToolType
+from .tools.tools.utils.flat_paths import flatten_tool_paths
 from .utils.logger import enable_rich_logger
 
 
 DEFAULT_INSTRUCTION = InstructionType.CODER
+DEFAULT_TOOL_ROLES = [ToolType.CODER]
 
 def get_version() -> str:
     """Get the package version."""
@@ -144,7 +147,16 @@ class Main:
             )
 
         instruction = config_morpher.fetch('instruction', instruction)
-        tools = config_morpher.fetch('tools', None)
+
+        tool_roles = [
+            tool
+            for role in config_morpher.fetch('tools.roles', DEFAULT_TOOL_ROLES)
+            for tool in getattr(ToolFactory, role.upper(), ToolFactory.EMPTY)
+        ]
+        tool_others = config_morpher.fetch('tools.others', [])
+        tool_others = flatten_tool_paths(tool_others)
+        tools = list(set(tool_roles + tool_others))
+
         mcps = config_morpher.fetch('mcps', None)
         rules = config_morpher.fetch('rules', None)
 

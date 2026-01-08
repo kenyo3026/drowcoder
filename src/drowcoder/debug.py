@@ -19,7 +19,11 @@ from .agent import DrowAgent, litellm
 from .checkpoint import Checkpoint
 from .model import ModelDispatcher
 from .utils.logger import enable_rich_logger
+from .tools.tools.factory import ToolFactory, ToolType
+from .tools.tools.utils.flat_paths import flatten_tool_paths
 
+
+DEFAULT_TOOL_ROLES = [ToolType.CODER]
 
 @dataclass
 class DebugArgs(DevArgs):
@@ -62,7 +66,15 @@ class DebugMain(Main):
         )
 
         instruction = config_morpher.fetch('instruction', instruction)
-        tools = config_morpher.fetch('tools', None)
+
+        tool_roles = [
+            tool
+            for role in config_morpher.fetch('tools.roles', DEFAULT_TOOL_ROLES)
+            for tool in getattr(ToolFactory, role.upper(), ToolFactory.EMPTY)
+        ]
+        tool_others = config_morpher.fetch('tools.others', [])
+        tool_others = flatten_tool_paths(tool_others)
+        tools = list(set(tool_roles + tool_others))
 
         try:
             # Create and initialize agent
