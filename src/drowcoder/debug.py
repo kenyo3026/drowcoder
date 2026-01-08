@@ -43,6 +43,7 @@ class DebugMain(Main):
         config = args.config
         model = args.model
         workspace = args.workspace
+        instruction = args.instruction
         checkpoint = args.checkpoint
 
         checkpoint = Checkpoint(checkpoint)
@@ -60,12 +61,14 @@ class DebugMain(Main):
             start_from=f'models[model={model}]' if model else f'models[0]',
         )
 
+        instruction = config_morpher.fetch('instruction', instruction)
         tools = config_morpher.fetch('tools', None)
 
         try:
             # Create and initialize agent
             agent = DrowAgent(
                 workspace=workspace,
+                instruction=instruction,
                 tools=tools,
                 checkpoint=checkpoint,
                 **completion_kwargs,

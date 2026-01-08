@@ -49,8 +49,8 @@ def main():
         print(f"🔧 Tool list: {', '.join(tool_names)}")
 
         # Display system prompt preview (first 200 characters)
-        if agent.system_prompt:
-            preview = agent.system_prompt[:200] + "..." if len(agent.system_prompt) > 200 else agent.system_prompt
+        if agent.system_instruction:
+            preview = agent.system_instruction[:200] + "..." if len(agent.system_instruction) > 200 else agent.system_instruction
             print(f"📝 System prompt preview: {preview}")
 
         print("\n🎉 drowcoder package is working correctly!")

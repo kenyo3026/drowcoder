@@ -19,8 +19,11 @@ from .agent import DrowAgent, litellm
 from .checkpoint import Checkpoint, CHECKPOINT_DEFAULT_NAME
 from .config import ConfigMain, ConfigCommand
 from .model import ModelDispatcher
+from .prompts import InstructionType
 from .utils.logger import enable_rich_logger
 
+
+DEFAULT_INSTRUCTION = InstructionType.CODER
 
 def get_version() -> str:
     """Get the package version."""
@@ -38,6 +41,7 @@ class MainArgs:
     model       :str  = None
     interactive :bool = False
     workspace   :str  = None
+    instruction :str  = DEFAULT_INSTRUCTION
     checkpoint  :str  = None
     checkpoint_root :str = './checkpoints'
     disable_rules :bool = False
@@ -57,6 +61,7 @@ class MainArgs:
         parser.add_argument("-m", "--model", default=cls.model, help="Model to use")
         parser.add_argument("-i", "--interactive", action="store_true", help="Run in interactive mode")
         parser.add_argument("-w", "--workspace", default=cls.workspace, help="Workspace directory")
+        parser.add_argument("--instruction", default=cls.instruction, help="System instruction")
         parser.add_argument("--checkpoint", default=cls.checkpoint, help="Checkpoint directory")
         parser.add_argument("--checkpoint_root", default=cls.checkpoint_root, help="Checkpoint root directory")
         parser.add_argument("--disable_rules", action="store_true", dest="disable_rules", help="Disable loading rules from .cursor/rules directory")
@@ -107,6 +112,7 @@ class Main:
         model = args.model
         interactive = args.interactive if query else True
         workspace = args.workspace
+        instruction = args.instruction
         checkpoint = args.checkpoint
         disable_rules = args.disable_rules
 
@@ -137,6 +143,7 @@ class Main:
                 (f'models[model={model}]' if model else f'models[0]') + '.roles.postcompletions'
             )
 
+        instruction = config_morpher.fetch('instruction', instruction)
         tools = config_morpher.fetch('tools', None)
         mcps = config_morpher.fetch('mcps', None)
         rules = config_morpher.fetch('rules', None)
@@ -145,6 +152,7 @@ class Main:
             # Create and initialize agent
             agent = DrowAgent(
                 workspace=workspace,
+                instruction=instruction,
                 tools=tools,
                 mcps=mcps,
                 rules=rules,
