@@ -40,10 +40,17 @@ def update_todos(merge, todos, checkpoint_path):
     from drowcoder.tools.tools.base import ToolResponseType
     result = tool.execute(merge=merge, todos=todos, as_type=ToolResponseType.INTACT)
     if not result.success:
-        if isinstance(result.error, str) and 'Invalid' in result.error:
-            raise ValueError(result.error)
+        # Check for various validation error markers
+        error_msg = str(result.error)
+        is_validation_error = any(marker in error_msg for marker in [
+            'Invalid', 'missing required field', 'requires both content and status',
+            'must be a dictionary', 'must be a string', 'must be a list',
+            'not found'
+        ])
+        if is_validation_error:
+            raise ValueError(error_msg)
         else:
-            raise IOError(result.error)
+            raise IOError(error_msg)
     return result.content
 
 def get_todos(checkpoint_path):
@@ -483,6 +490,102 @@ class TestTodoToolClass:
         ]
         result = tool.execute(merge=True, todos=updated_todos, as_type=ToolResponseType.INTACT)
         assert result.success is True
+
+
+class TestTodoMergeRefinement:
+    """Refined tests for the new merge logic and partial updates."""
+
+    def test_merge_update_only_status(self, tmp_checkpoint):
+        """Test merge=True updating only the status field."""
+        # Setup initial todos
+        todos1 = [
+            {'id': 'task1', 'content': 'Original Content 1', 'status': 'pending'},
+            {'id': 'task2', 'content': 'Original Content 2', 'status': 'pending'}
+        ]
+        update_todos(merge=False, todos=todos1, checkpoint_path=tmp_checkpoint)
+
+        # Update only status for task1
+        todos2 = [
+            {'id': 'task1', 'status': 'completed'},
+            {'id': 'task2', 'status': 'in_progress'}
+        ]
+        update_todos(merge=True, todos=todos2, checkpoint_path=tmp_checkpoint)
+
+        # Verify task1: status changed, content preserved
+        loaded = get_todos(tmp_checkpoint)
+        assert loaded[0]['id'] == 'task1'
+        assert loaded[0]['status'] == 'completed'
+        assert loaded[0]['content'] == 'Original Content 1'  # Preserved
+
+    def test_merge_update_only_content(self, tmp_checkpoint):
+        """Test merge=True updating only the content field."""
+        # Setup initial todos
+        todos1 = [
+            {'id': 'task1', 'content': 'Old Content', 'status': 'in_progress'},
+            {'id': 'task2', 'content': 'Task 2', 'status': 'pending'}
+        ]
+        update_todos(merge=False, todos=todos1, checkpoint_path=tmp_checkpoint)
+
+        # Update only content for task1
+        todos2 = [
+            {'id': 'task1', 'content': 'New Content'},
+            {'id': 'task2', 'status': 'pending'} # task2 unchanged but need 2 items
+        ]
+        update_todos(merge=True, todos=todos2, checkpoint_path=tmp_checkpoint)
+
+        # Verify task1: content changed, status preserved
+        loaded = get_todos(tmp_checkpoint)
+        assert loaded[0]['id'] == 'task1'
+        assert loaded[0]['content'] == 'New Content'
+        assert loaded[0]['status'] == 'in_progress'  # Preserved
+
+    def test_merge_new_todo_missing_fields_fails(self, tmp_checkpoint):
+        """Test merge=True fails when a NEW todo is missing required fields."""
+        # Setup initial todos
+        todos1 = [
+            {'id': 'task1', 'content': 'Task 1', 'status': 'pending'},
+            {'id': 'task2', 'content': 'Task 2', 'status': 'pending'}
+        ]
+        update_todos(merge=False, todos=todos1, checkpoint_path=tmp_checkpoint)
+
+        # Try to add a NEW todo (task3) without content
+        todos2 = [
+            {'id': 'task1', 'status': 'completed'},
+            {'id': 'task3', 'status': 'pending'} # task3 is new, needs content
+        ]
+
+        with pytest.raises(ValueError, match="requires both content and status fields"):
+            update_todos(merge=True, todos=todos2, checkpoint_path=tmp_checkpoint)
+
+    def test_replace_missing_status_fails(self, tmp_checkpoint):
+        """Test merge=False (replace) fails when status is missing."""
+        todos = [
+            {'id': 'task1', 'content': 'Task 1'}, # Missing status
+            {'id': 'task2', 'content': 'Task 2', 'status': 'pending'}
+        ]
+
+        with pytest.raises(ValueError, match="missing required field: status"):
+            update_todos(merge=False, todos=todos, checkpoint_path=tmp_checkpoint)
+
+    def test_merge_only_id_warning_behavior(self, tmp_checkpoint):
+        """Test providing only ID in merge mode (should preserve everything)."""
+        todos1 = [
+            {'id': 'task1', 'content': 'Task 1', 'status': 'pending'},
+            {'id': 'task2', 'content': 'Task 2', 'status': 'pending'}
+        ]
+        update_todos(merge=False, todos=todos1, checkpoint_path=tmp_checkpoint)
+
+        # Update with only ID (no-op)
+        todos2 = [
+            {'id': 'task1'},
+            {'id': 'task2'}
+        ]
+        update_todos(merge=True, todos=todos2, checkpoint_path=tmp_checkpoint)
+
+        # Verify everything is preserved
+        loaded = get_todos(tmp_checkpoint)
+        assert loaded[0] == todos1[0]
+        assert loaded[1] == todos1[1]
 
 
 class TestTodoPerformance:

@@ -133,20 +133,30 @@ tools:
         properties:
           merge:
             type: boolean
-            description: Whether to merge the todos with the existing todos. If true, the todos will be merged into the existing todos based on the id field. You can leave unchanged properties undefined. If false, the new todos will replace the existing todos.
+            description: |
+              Whether to merge with existing todos or replace all todos.
+              - false: Replace all todos (requires id, content, status for each item)
+              - true: Update existing todos (requires id + fields to update, new todos need complete info)
           todos:
             type: array
-            description: Array of todo items to write to the workspace
+            description: |
+              Array of todo items to write to the workspace.
+              Requirements depend on merge mode:
+              - merge=false: All items need id, content, status (creating new todo list)
+              - merge=true: Existing items only need id + fields to update, new items need id, content, status
             minItems: 2
             items:
               type: object
               properties:
                 id:
                   type: string
-                  description: Unique identifier for the todo item
+                  description: Unique identifier (always required to identify the todo item)
                 content:
                   type: string
-                  description: The description/content of the todo item
+                  description: |
+                    The description/content of the todo item.
+                    - merge=false: Required (creating complete todo item)
+                    - merge=true: Optional for existing todos, required for new todos
                 status:
                   type: string
                   enum:
@@ -154,10 +164,11 @@ tools:
                     - in_progress
                     - completed
                     - cancelled
-                  description: The current status of the todo item
+                  description: |
+                    The current status of the todo item.
+                    - merge=false: Required (creating complete todo item)
+                    - merge=true: Optional for existing todos, required for new todos
               required:
-                - content
-                - status
                 - id
         required:
           - merge
