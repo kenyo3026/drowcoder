@@ -1,3 +1,23 @@
+<!--
+📋 PR Title Format (Required):
+  [TYPE] Description
+
+  Valid types: FEAT, FIX, DOCS, STYLE, REFACTOR, PERF, TEST, CHORE, REVERT
+
+  Guidelines:
+  - Type must be UPPERCASE
+  - Description should start with uppercase letter
+  - Use verb base form (Add, Fix, Update) not -ing form (Adding, Fixing, Updating)
+  - Keep under 72 characters
+
+  Examples:
+  ✅ [FEAT] Add user authentication system
+  ✅ [FIX] Resolve memory leak in checkpoint
+  ✅ [REFACTOR] Simplify tool loading logic
+  ❌ [feat] adding new feature
+  ❌ Adding new feature
+-->
+
 ## Description
 [Provide a detailed description of your changes]
 

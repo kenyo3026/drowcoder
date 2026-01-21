@@ -1,0 +1,59 @@
+name: PR Title Check
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  check-title:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR title format
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = context.payload.pull_request.title;
+
+            // Valid commit types (must be uppercase)
+            const validTypes = ['FEAT', 'FIX', 'DOCS', 'STYLE', 'REFACTOR', 'PERF', 'TEST', 'CHORE', 'REVERT'];
+
+            // Check if title starts with [TYPE]
+            const typeRegex = /^\[([A-Z]+)\]\s+(.+)$/;
+            const match = title.match(typeRegex);
+
+            if (!match) {
+              const message = `❌ PR title must start with [TYPE] format.\n\n` +
+                `Valid types: ${validTypes.join(', ')}\n\n` +
+                `Example: [FEAT] Add new feature\n` +
+                `Current title: "${title}"`;
+
+              core.setFailed(message);
+              return;
+            }
+
+            const [, type, description] = match;
+
+            // Check if type is valid
+            if (!validTypes.includes(type)) {
+              const message = `❌ Invalid commit type: [${type}]\n\n` +
+                `Valid types: ${validTypes.join(', ')}\n\n` +
+                `Current title: "${title}"`;
+
+              core.setFailed(message);
+              return;
+            }
+
+            // Check if description starts with uppercase (recommended but not enforced)
+            if (description && description[0] !== description[0].toUpperCase()) {
+              core.warning(`⚠️ Title description should start with uppercase letter.\nCurrent: "${description}"\nRecommended: "${description[0].toUpperCase()}${description.slice(1)}"`);
+            }
+
+            // Check if description starts with verb base form (warning only)
+            const verbingRegex = /^(Adding|Fixing|Updating|Removing|Implementing|Creating|Deleting|Modifying)/i;
+            if (verbingRegex.test(description)) {
+              const verb = description.match(verbingRegex)[1];
+              const baseForm = verb.replace(/ing$/, '').replace(/^Creat$/, 'Create');
+              core.warning(`⚠️ Use verb base form instead of -ing form.\nCurrent: "${verb}"\nRecommended: "${baseForm}"`);
+            }
+
+            console.log(`✅ PR title format is valid: [${type}] ${description}`);
