@@ -6,6 +6,24 @@ labels: ''
 assignees: ''
 ---
 
+<!--
+📋 Issue Title Format (Recommended):
+  Option 1: [TYPE] Description
+  Option 2: Emoji Description
+
+  Common types: FEAT, FIX, DOCS, BUG, ENHANCEMENT, QUESTION
+  Common emojis: 🐛 (bug), 🚀 (feature), 📚 (docs), ⚡️ (perf), 🔧 (config)
+
+  Examples:
+  ✅ [BUG] Application crashes on startup
+  ✅ [FEAT] Add dark mode support
+  ✅ 🐛 Application crashes on startup
+  ✅ 🚀 Add dark mode support
+
+  Note: This is a suggestion for better visibility, not strictly enforced.
+-->
+
+
 ## Issue Type
 - [ ] 🐛 Bug Report
 - [ ] 🚀 Feature Request

@@ -1,0 +1,56 @@
+name: Issue Title Check
+
+on:
+  issues:
+    types: [opened, edited, reopened]
+
+jobs:
+  check-title:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check issue title format
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = context.payload.issue.title;
+
+            // Valid issue prefixes (optional but recommended)
+            const validPrefixes = ['FEAT', 'FIX', 'DOCS', 'BUG', 'ENHANCEMENT', 'QUESTION'];
+
+            // Check if title uses [TYPE] format
+            const typeRegex = /^\[([A-Z]+)\]\s+(.+)$/;
+            const match = title.match(typeRegex);
+
+            // Emoji check (optional, just a warning)
+            const emojiRegex = /^[\p{Emoji}]/u;
+            const hasEmoji = emojiRegex.test(title);
+
+            if (!match && !hasEmoji) {
+              // Neither [TYPE] nor emoji - show warning
+              core.warning(
+                `💡 Consider using [TYPE] or emoji prefix for better visibility.\n\n` +
+                `Examples:\n` +
+                `  [FEAT] Add new feature\n` +
+                `  [BUG] Fix critical bug\n` +
+                `  🐛 Fix critical bug\n` +
+                `  🚀 Add new feature\n\n` +
+                `Current title: "${title}"`
+              );
+            } else if (match) {
+              const [, type, description] = match;
+
+              // Validate type if using [TYPE] format
+              if (!validPrefixes.includes(type)) {
+                core.warning(
+                  `⚠️ Uncommon issue type: [${type}]\n\n` +
+                  `Common types: ${validPrefixes.join(', ')}\n` +
+                  `(This is just a suggestion, not enforced)`
+                );
+              }
+
+              console.log(`✅ Issue title uses [${type}] format`);
+            } else if (hasEmoji) {
+              console.log(`✅ Issue title uses emoji prefix`);
+            }
+
+            // No failure - issues are more flexible than PRs
