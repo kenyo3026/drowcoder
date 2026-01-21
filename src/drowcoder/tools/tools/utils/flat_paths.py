@@ -19,10 +19,12 @@ def flatten_tool_paths(tool_others: List) -> List[str]:
     for item in tool_others:
         if isinstance(item, str):
             # Direct path
-            result.append(item)
+            item = pathlib.Path(item).expanduser().resolve()
+            result.append(str(item))
         elif isinstance(item, dict):
             # Nested structure: {base_path: [files]}
             for base_path, files in item.items():
+                base_path = pathlib.Path(base_path).expanduser().resolve()
                 if isinstance(files, list):
                     for file in files:
                         # Combine base_path with file
