@@ -100,15 +100,16 @@ class TodoTool(BaseTool):
             )
         self.checkpoint_path = pathlib.Path(self.checkpoint) / 'todos.json'
 
-    def validate_todo_items(self, todos: List[Dict[str, Any]]) -> List[TodoItem]:
+    def validate_todo_items(self, todos: List[Dict[str, Any]], merge: bool = False) -> List[Dict[str, Any]]:
         """
-        Validate and convert todo items to TodoItem objects.
+        Validate todo items based on merge mode.
 
         Args:
             todos: List of todo dictionaries
+            merge: Whether in merge mode (affects validation rules)
 
         Returns:
-            List of validated TodoItem objects
+            List of validated todo dictionaries (not converted to TodoItem yet)
 
         Raises:
             ValueError: If required fields are missing or invalid
@@ -126,62 +127,151 @@ class TodoTool(BaseTool):
             if not isinstance(todo, dict):
                 raise TypeError(f"Todo item {i} must be a dictionary")
 
-            # Check required fields
-            required_fields = ['id', 'content', 'status']
-            for field in required_fields:
-                if field not in todo:
-                    raise ValueError(f"Todo item {i} missing required field: {field}")
-                if not isinstance(todo[field], str):
-                    raise ValueError(f"Todo item {i} field '{field}' must be a string")
-
-            # Create and validate TodoItem
-            try:
-                todo_item = TodoItem(
-                    id=todo['id'],
-                    content=todo['content'],
-                    status=todo['status']
+            # id is always required (used to identify the todo item)
+            if 'id' not in todo:
+                raise ValueError(
+                    f"Todo item {i} missing required field: id "
+                    f"(required to identify the todo item)"
                 )
-                validated_todos.append(todo_item)
-            except ValueError as e:
-                raise ValueError(f"Todo item {i}: {e}")
+            if not isinstance(todo['id'], str):
+                raise ValueError(f"Todo item {i} field 'id' must be a string")
+
+            if not merge:
+                # merge=False: Need complete todo information to create new todo list
+                if 'content' not in todo:
+                    raise ValueError(
+                        f"Todo item {i} missing required field: content "
+                        f"(required when merge=False to create a complete todo item)"
+                    )
+                if 'status' not in todo:
+                    raise ValueError(
+                        f"Todo item {i} missing required field: status "
+                        f"(required when merge=False to create a complete todo item)"
+                    )
+
+                # Validate field types
+                if not isinstance(todo['content'], str):
+                    raise ValueError(f"Todo item {i} field 'content' must be a string")
+                if not isinstance(todo['status'], str):
+                    raise ValueError(f"Todo item {i} field 'status' must be a string")
+
+                # Validate status value
+                try:
+                    TodoItem(
+                        id=todo['id'],
+                        content=todo['content'],
+                        status=todo['status']
+                    )
+                except ValueError as e:
+                    raise ValueError(f"Todo item {i}: {e}")
+            else:
+                # merge=True: Only validate provided fields
+                if 'content' in todo and not isinstance(todo['content'], str):
+                    raise ValueError(f"Todo item {i} field 'content' must be a string")
+                if 'status' in todo and not isinstance(todo['status'], str):
+                    raise ValueError(f"Todo item {i} field 'status' must be a string")
+
+                # Validate status value if provided
+                if 'status' in todo:
+                    valid_statuses = TodoStatusType.values()
+                    if todo['status'] not in valid_statuses:
+                        raise ValueError(
+                            f"Todo item {i}: Invalid status '{todo['status']}'. "
+                            f"Must be one of: {valid_statuses}"
+                        )
+
+            validated_todos.append(todo)
 
         return validated_todos
 
     def merge_todo_items(
         self,
         existing_todos: List[TodoItem],
-        new_todos: List[TodoItem]
+        new_todos: List[Dict[str, Any]]
     ) -> List[TodoItem]:
         """
         Merge new todo items with existing ones based on ID.
 
+        For existing todos: Update only provided fields, keep others unchanged.
+        For new todos: Require complete information (content and status).
+
         Args:
             existing_todos: Current todo items
-            new_todos: New todo items to merge
+            new_todos: New todo dictionaries to merge
 
         Returns:
             Merged list of todo items
+
+        Raises:
+            ValueError: If new todo lacks required fields
         """
         # Create a dictionary for efficient lookup
         existing_dict = {todo.id: todo for todo in existing_todos}
+        existing_ids = set(existing_dict.keys())
 
-        # Update or add new items
-        for new_todo in new_todos:
-            existing_dict[new_todo.id] = new_todo
+        # Process new todos
+        updated_dict = {}
+        for new_todo_dict in new_todos:
+            todo_id = new_todo_dict['id']
+            existing_todo = existing_dict.get(todo_id)
 
-        # Return as list, preserving order where possible
+            if existing_todo:
+                # Update existing todo: fill missing fields from existing
+                has_updates = False
+
+                if 'content' in new_todo_dict:
+                    content = new_todo_dict['content']
+                    has_updates = True
+                else:
+                    content = existing_todo.content
+
+                if 'status' in new_todo_dict:
+                    status = new_todo_dict['status']
+                    has_updates = True
+                else:
+                    status = existing_todo.status
+
+                # Warn if nothing is actually updated
+                if not has_updates:
+                    self.logger.warning(
+                        f"Todo with id='{todo_id}' has no fields to update "
+                        f"(only id provided, no actual changes made)"
+                    )
+            else:
+                # New todo: require complete information
+                missing_fields = [
+                    field for field in ['content', 'status']
+                    if field not in new_todo_dict
+                ]
+                if missing_fields:
+                    raise ValueError(
+                        f"New todo with id='{todo_id}' requires both content and status fields. "
+                        f"Missing: {', '.join(missing_fields)}"
+                    )
+                content = new_todo_dict['content']
+                status = new_todo_dict['status']
+
+            # Create TodoItem (this will validate status)
+            updated_dict[todo_id] = TodoItem(
+                id=todo_id,
+                content=content,
+                status=status
+            )
+
+        # Build result: preserve order of existing todos, then add new ones
         result = []
 
-        # First, add existing items in their original order (updated if needed)
-        existing_ids = {todo.id for todo in existing_todos}
+        # First, add existing items in their original order (updated if in new_todos)
         for todo in existing_todos:
-            if todo.id in existing_dict:
-                result.append(existing_dict[todo.id])
+            if todo.id in updated_dict:
+                result.append(updated_dict[todo.id])
+            else:
+                result.append(todo)
 
         # Then add completely new items
-        for new_todo in new_todos:
-            if new_todo.id not in existing_ids:
-                result.append(new_todo)
+        for new_todo_dict in new_todos:
+            if new_todo_dict['id'] not in existing_ids:
+                result.append(updated_dict[new_todo_dict['id']])
 
         return result
 
@@ -258,7 +348,12 @@ class TodoTool(BaseTool):
 
         Args:
             merge: Whether to merge with existing todos (True) or replace them (False)
-            todos: Array of todo items with id, content, and status fields
+                   - False: Replace all todos (requires id, content, status for each item)
+                   - True: Update existing todos (requires id, optional content/status)
+            todos: Array of todo items
+                   - merge=False: All items need id, content, status
+                   - merge=True: Existing items only need id + fields to update
+                                 New items need id, content, status
             as_type: Output format type for the response
             filter_empty_fields: Whether to filter empty fields in output
             filter_metadata_fields: Whether to filter metadata fields in output
@@ -277,8 +372,8 @@ class TodoTool(BaseTool):
         checkpoint_path = pathlib.Path(self.checkpoint_path)
 
         try:
-            # Validate input todos
-            validated_todos = self.validate_todo_items(todos)
+            # Validate input todos based on merge mode
+            validated_todos = self.validate_todo_items(todos, merge=merge)
 
             # Handle merge vs replace logic
             if merge:
@@ -304,9 +399,18 @@ class TodoTool(BaseTool):
                     except Exception as e:
                         raise IOError(f"Failed to load checkpoint file {checkpoint_path}: {e}")
 
+                # Merge: validated_todos are dicts, merge_todo_items will create TodoItems
                 final_todos = self.merge_todo_items(existing_todos, validated_todos)
             else:
-                final_todos = validated_todos
+                # Replace: Convert validated dicts to TodoItems
+                final_todos = [
+                    TodoItem(
+                        id=todo['id'],
+                        content=todo['content'],
+                        status=todo['status']
+                    )
+                    for todo in validated_todos
+                ]
 
             # Save to checkpoint
             self.save_todos_to_checkpoint(final_todos)

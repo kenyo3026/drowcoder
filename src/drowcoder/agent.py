@@ -59,6 +59,7 @@ class DrowAgent:
     def __init__(
         self,
         workspace: str = None,
+        instruction: Optional[str] = None,
         tools: Optional[List[Dict[str, Any]]] = None,
         mcps: Optional[Dict[str, Any]] = None,
         rules: Optional[Union[str, pathlib.Path, List[Union[str, pathlib.Path]]]] = None,
@@ -76,6 +77,10 @@ class DrowAgent:
 
         Args:
             workspace: Workspace directory path
+            instruction: Optional instruction type to use. Can be:
+                - None: Uses InstructionFactory.EMPTY (empty instruction)
+                - str: Instruction type name (e.g., 'CODER', 'coder' - will be converted to uppercase)
+                - InstructionType: InstructionType constant (e.g., InstructionType.CODER)
             tools: Optional list of tool configurations in OpenAI format.
                 If provided, these tools will override/extend default builtin tools.
                 Format: [{"type": "function", "function": {...}}, ...]
@@ -146,7 +151,9 @@ class DrowAgent:
         self.iteration_so_far_without_call_tools = 0
 
         self.messages = []
-        self.system_prompt, format_details = SystemPromptInstruction.format(
+
+        self.system_instruction, format_details = SystemPromptInstruction.format(
+            instruction=instruction,
             tools=self.tools,
             rules=self.rules,
             return_details=True,
@@ -191,8 +198,8 @@ class DrowAgent:
             return verbose_style
 
     def init(self):
-        if self.system_prompt:
-            message = {"role": AgentRole.SYSTEM, "content": self.system_prompt}
+        if self.system_instruction:
+            message = {"role": AgentRole.SYSTEM, "content": self.system_instruction}
             self.messages.append(message)
 
             self.checkpoint.messages.punch(message)

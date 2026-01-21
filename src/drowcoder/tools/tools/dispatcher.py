@@ -18,15 +18,7 @@ from .todo import TodoTool as update_todos
 
 
 DEFAULT_TOOL_CONFIG_ROOT = pathlib.Path(__file__).resolve().parent
-DEFAULT_TOOL_CONFIGS = [
-    'attempt_completion.yaml',
-    'bash.yaml',
-    'load.yaml',
-    'search_and_replace.yaml',
-    'search.yaml',
-    'write.yaml',
-    'todo.yaml',
-]
+DEFAULT_TOOL_CONFIGS = []
 
 @dataclass
 class OpenAICompatibleFuncDesc:
@@ -82,9 +74,12 @@ class ToolDispatcherConfig:
         if isinstance(self.paths, (str, pathlib.Path)):
             self.paths = [self.paths]
 
+        # Expand ~ in paths
+        self.paths = [pathlib.Path(path).expanduser() for path in self.paths]
+
         # Apply root to paths
         if self.root:
-            self.root = pathlib.Path(self.root)
+            self.root = pathlib.Path(self.root).expanduser()
             self.paths = [self.root / path for path in self.paths]
 
 class ToolDispatcherConfigLoader:
