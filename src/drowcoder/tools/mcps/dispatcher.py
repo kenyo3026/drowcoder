@@ -338,7 +338,7 @@ class MCPDispatcher(MCPDispatcherConfigLoader):
         # Initialize new instances (parallel or sequential)
         if parallel_init and instances_to_init:
             self._parallel_initialize(instances_to_init)
-        else:
+        elif instances_to_init:
             for instance in instances_to_init:
                 if instance.client:
                     instance.client.initialize()
