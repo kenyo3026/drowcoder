@@ -10,7 +10,7 @@ import argparse
 import pathlib
 import sys
 import traceback
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from typing import List, Type, Union
 
 from config_morpher import ConfigMorpher
@@ -85,7 +85,12 @@ class MainArgs:
         parser_set.add_argument('config_file', help='Path to configuration file')
 
         args = parser.parse_args()
-        return cls(**{k: v for k, v in args.__dict__.items() if hasattr(cls, k)})
+
+        # Get valid field names for this dataclass
+        field_names = {f.name for f in fields(cls)}
+
+        # Only pass arguments that are fields of the dataclass
+        return cls(**{k: v for k, v in args.__dict__.items() if k in field_names})
 
     def __post_init__(self):
         if not self.checkpoint:
