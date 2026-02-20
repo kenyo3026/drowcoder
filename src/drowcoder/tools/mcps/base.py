@@ -298,11 +298,11 @@ class MCPBaseClient(ABC):
         This method is idempotent - calling it multiple times is safe.
         """
         if self._initialized:
-            self.logger.debug(f"MCP c{self.name} {self.server_name} client already initialized, skipping")
+            self.logger.debug(f"MCP  {self.name} {self.server_name} client already initialized, skipping")
             return
 
         self._initialized = True
-        self.logger.info(f"MCP {self.name} {self.server_name} client initialized")
+        self.logger.info(f"MCP  {self.name} {self.server_name} client initialized")
 
         self._load_tool_descs()
 
