@@ -40,7 +40,7 @@ def get_version() -> str:
 class MainArgs:
     # Primary arguments
     query       :str  = None
-    config      :Union[str, List[Union[str, pathlib.Path]]] = field(default_factory=lambda: ['./config.yaml'])
+    config      :Union[str, List[Union[str, pathlib.Path]]] = './config.yaml'
     model       :str  = None
     interactive :bool = False
     workspace   :str  = None
@@ -60,7 +60,7 @@ class MainArgs:
 
         # Setup primary arguments
         parser.add_argument("-q", "--query", default=cls.query, help="Headless mode: process query directly, otherwise interactive mode")
-        parser.add_argument("-c", "--config", default=None, action='append', help="Path list to configuration file")
+        parser.add_argument("-c", "--config", default=cls.config, action='append', help="Path list to configuration file")
         parser.add_argument("-m", "--model", default=cls.model, help="Model to use")
         parser.add_argument("-i", "--interactive", action="store_true", help="Run in interactive mode")
         parser.add_argument("-w", "--workspace", default=cls.workspace, help="Workspace directory")

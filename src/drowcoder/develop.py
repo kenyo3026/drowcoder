@@ -29,7 +29,7 @@ def find_project_root() -> pathlib.Path:
 
 @dataclass
 class DevArgs(MainArgs):
-    config     : Union[str, List[Union[str, pathlib.Path]]] = field(default_factory=lambda: [str(find_project_root() / 'configs' / 'config.yaml')])
+    config     : Union[str, List[Union[str, pathlib.Path]]] = str(find_project_root() / 'configs' / 'config.yaml')
     model      : str = None
     workspace  : str = None
     checkpoint : str = None
