@@ -11,6 +11,12 @@ from .mcps.dispatcher import MCPDispatcher
 from .tools.dispatcher import ToolDispatcher
 
 
+@dataclass(frozen=True)
+class DispatcherToolTypeName:
+    TOOL :str = 'tool'
+    MCP  :str = 'mcp'
+    UNKNOWN: str = 'unknown'
+
 class Dispatcher:
 
     def __init__(
@@ -106,3 +112,22 @@ class Dispatcher:
     def expose_mcp_funcs(self) -> Dict[str, Callable]:
         """Get tool functions from MCP dispatcher"""
         return self.mcp_dispatcher.get_mcp_funcs()
+
+    def get_func_type(self, func_name: str) -> str:
+        """
+        Get the type of a function by its name.
+
+        Args:
+            func_name: Name of the function to check
+
+        Returns:
+            'mcp' if the function is from MCP dispatcher,
+            'tool' if the function is from tool dispatcher,
+            'unknown' if the function is not found
+        """
+        if func_name in self.expose_mcp_funcs():
+            return DispatcherToolTypeName.MCP
+        elif func_name in self.expose_tool_funcs():
+            return DispatcherToolTypeName.TOOL
+        else:
+            return DispatcherToolTypeName.UNKNOWN

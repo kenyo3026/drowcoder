@@ -9,7 +9,7 @@ import litellm
 
 from .checkpoint import Checkpoint
 from .prompts import *
-from .tools.dispatcher import Dispatcher
+from .tools.dispatcher import Dispatcher, DispatcherToolTypeName
 from .verbose import *
 from .utils.logger import OutputCapture
 from .utils.unique_id import generate_unique_id
@@ -104,85 +104,87 @@ class DrowAgent:
             max_iterations_without_call_tools: Max iterations without tool calls
             **completion_kwargs: Additional arguments for completion API
         """
-        self.logger = logger or logging.getLogger(__name__)
-
-        self.setup_workspace(workspace)
-        self.setup_rules(rules, disable_rules)
-
-        self.checkpoint = checkpoint
-        if isinstance(self.checkpoint, str) or self.checkpoint is None:
-            self.checkpoint = Checkpoint(self.checkpoint)
-
-        # Initialize tool dispatcher with default builtin tools
-        # When configs=None, ToolDispatcher automatically loads DEFAULT_TOOL_CONFIGS
-        # This ensures default tools are always available
-        dispatcher = Dispatcher(
-            logger=self.logger,
-            checkpoint=self.checkpoint.checkpoint_root,
-        )
-
-        # Apply user-provided tools to override/extend default tools
-        # If tools is provided, it will update existing tools with same name
-        # or add new tools to the dispatcher
-        if tools:
-            dispatcher.apply_tools(
-                configs=tools,
-            )
-        if mcps:
-            dispatcher.apply_mcps(
-                configs=mcps,
-            )
-
-        # Extract tool descriptions and functions for agent use
-        self.tools = dispatcher.expose_descs()
-        self.tool_funcs = dispatcher.expose_funcs()
-        self.tool_call_group_ids = []
-        self.keep_last_k_tool_call_contexts = keep_last_k_tool_call_contexts
-
-        # Iteration control - agent will keep iterating until one of:
-        # 1. max_iterations is reached (total iteration limit), OR
-        # 2. attempt_completion is called (explicit completion signal), OR
-        # 3. max_iterations_without_call_tools is reached (continuous thinking without tools)
-        #    - Set to 0 for Cursor-like behavior (stop immediately without tools)
-        #    - Set to 3+ for allowing extended thinking chains
-        self.max_iterations = max_iterations
-        self.max_iterations_without_call_tools = max_iterations_without_call_tools
-        self.iteration_so_far = 0
-        self.iteration_so_far_without_call_tools = 0
-
-        self.messages = []
-
-        self.system_instruction, format_details = SystemPromptInstruction.format(
-            instruction=instruction,
-            tools=self.tools,
-            rules=self.rules,
-            return_details=True,
-        )
-
-        # Log rule initialization details
-        workspace_path = pathlib.Path(self.workspace).resolve()
-        for rule_path, status in format_details.rules.items():
-            rule_pathlib = pathlib.Path(rule_path)
-            try:
-                display_path = rule_pathlib.relative_to(workspace_path)
-            except ValueError:
-                display_path = rule_pathlib
-
-            if status is True:
-                self.logger.info(f"Rule {display_path} initialized")
-            else:
-                self.logger.warning(f"Rule {display_path} failed to initialize ({status}) -> skip")
-
-        self.completion_kwargs = completion_kwargs
-        self.completion_kwargs.update(
-            {
-                'tools': self.tools,
-                'tool_choice': 'auto'
-            }
-        )
-
         self.verbose_style = self._resolve_verbose_style(verbose_style)
         self.verboser = VerboserFactory.get(self.verbose_style)
+
+        with self.verboser.console.status("Setting agent..."):
+
+            self.logger = logger or logging.getLogger(__name__)
+
+            self.setup_workspace(workspace)
+            self.setup_rules(rules, disable_rules)
+
+            self.checkpoint = checkpoint
+            if isinstance(self.checkpoint, str) or self.checkpoint is None:
+                self.checkpoint = Checkpoint(self.checkpoint)
+
+            # Initialize tool dispatcher with default builtin tools
+            # When configs=None, ToolDispatcher automatically loads DEFAULT_TOOL_CONFIGS
+            # This ensures default tools are always available
+            self.dispatcher = Dispatcher(
+                logger=self.logger,
+                checkpoint=self.checkpoint.checkpoint_root,
+            )
+
+            # Apply user-provided tools to override/extend default tools
+            # If tools is provided, it will update existing tools with same name
+            # or add new tools to the dispatcher
+            if tools:
+                self.dispatcher.apply_tools(
+                    configs=tools,
+                )
+            if mcps:
+                self.dispatcher.apply_mcps(
+                    configs=mcps,
+                )
+
+            # Extract tool descriptions and functions for agent use
+            self.tools = self.dispatcher.expose_descs()
+            self.tool_funcs = self.dispatcher.expose_funcs()
+            self.tool_call_group_ids = []
+            self.keep_last_k_tool_call_contexts = keep_last_k_tool_call_contexts
+
+            # Iteration control - agent will keep iterating until one of:
+            # 1. max_iterations is reached (total iteration limit), OR
+            # 2. attempt_completion is called (explicit completion signal), OR
+            # 3. max_iterations_without_call_tools is reached (continuous thinking without tools)
+            #    - Set to 0 for Cursor-like behavior (stop immediately without tools)
+            #    - Set to 3+ for allowing extended thinking chains
+            self.max_iterations = max_iterations
+            self.max_iterations_without_call_tools = max_iterations_without_call_tools
+            self.iteration_so_far = 0
+            self.iteration_so_far_without_call_tools = 0
+
+            self.messages = []
+
+            self.system_instruction, format_details = SystemPromptInstruction.format(
+                instruction=instruction,
+                tools=self.tools,
+                rules=self.rules,
+                return_details=True,
+            )
+
+            # Log rule initialization details
+            workspace_path = pathlib.Path(self.workspace).resolve()
+            for rule_path, status in format_details.rules.items():
+                rule_pathlib = pathlib.Path(rule_path)
+                try:
+                    display_path = rule_pathlib.relative_to(workspace_path)
+                except ValueError:
+                    display_path = rule_pathlib
+
+                if status is True:
+                    self.logger.info(f"Rule {display_path} initialized")
+                else:
+                    self.logger.warning(f"Rule {display_path} failed to initialize ({status}) -> skip")
+
+            self.completion_kwargs = completion_kwargs
+            self.completion_kwargs.update(
+                {
+                    'tools': self.tools,
+                    'tool_choice': 'auto'
+                }
+            )
 
     def _resolve_verbose_style(self, verbose_style):
         """Convert verbose_style to string format"""
@@ -253,24 +255,28 @@ class DrowAgent:
             arguments = json.loads(tool_call.function.arguments)
 
             if func_name in self.tool_funcs:
-                # Use OutputCapture to capture logger output during tool execution
-                try:
-                    with OutputCapture(logger=self.logger) as capture:
-                        content = self.tool_funcs[func_name](**arguments)
-                    content = str(content)
+                # Determine if this is a tool or mcp for status display
+                func_type = self.dispatcher.get_func_type(func_name)
 
-                    # Get captured logs
-                    captured_output = capture.get_output()
-                    captured_logs = captured_output['logs']
-
-                except Exception as e:
-                    content = f"Error executing {func_name}: {str(e)}"
-                    # Try to get partial logs if capture was initiated
+                with self.verboser.console.status(f"Executing {func_type}: {func_name}..."):
                     try:
+                        # Use OutputCapture to capture logger output during tool execution
+                        with OutputCapture(logger=self.logger) as capture:
+                            content = self.tool_funcs[func_name](**arguments)
+                        content = str(content)
+
+                        # Get captured logs
                         captured_output = capture.get_output()
                         captured_logs = captured_output['logs']
-                    except:
-                        captured_logs = ""
+
+                    except Exception as e:
+                        content = f"Error executing {func_name}: {str(e)}"
+                        # Try to get partial logs if capture was initiated
+                        try:
+                            captured_output = capture.get_output()
+                            captured_logs = captured_output['logs']
+                        except:
+                            captured_logs = ""
             else:
                 content = f"Unknown tool: {func_name}"
                 captured_logs = ""
