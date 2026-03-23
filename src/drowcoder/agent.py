@@ -328,7 +328,9 @@ class DrowAgent:
 
         messages = self._prepare_messages(self.messages, last_k_tool_call_group=self.keep_last_k_tool_call_contexts)
 
-        response = litellm.completion(messages=messages, **completion_kwargs)
+        self.verboser.console.print()
+        with self.verboser.console.status("Completing..."):
+            response = litellm.completion(messages=messages, **completion_kwargs)
 
         if not response.choices or len(response.choices) == 0:
             from litellm.types.utils import Message
