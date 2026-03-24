@@ -176,7 +176,7 @@ class RulePromptInstruction:
         cls,
         rules: Optional[Union[str, pathlib.Path, List[Union[str, pathlib.Path]]]] = None,
         return_details: bool = False,
-        **kwargs
+        **kwargs,
     ) -> Union[str, Tuple[str, Dict[str, Optional[str]]]]:
         """
         Format rules into prompt template.

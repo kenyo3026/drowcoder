@@ -1,10 +1,11 @@
+import datetime
 import json
+import logging
 import pathlib
 import platform
 import shutil
-import datetime
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Type, Union
 
 from .utils.mixin import NameWithLazyDatetime
 
@@ -21,7 +22,7 @@ class TxtPunchMode:
     write: str = 'w'
 
     @classmethod
-    def check(cls, val: Any, default: Any = _SENTINEL):
+    def check(cls, val: Any, default: Any = _SENTINEL) -> Any:
         for group in cls.__dict__.items():
             if val in group:
                 return group[1]
@@ -30,7 +31,7 @@ class TxtPunchMode:
         raise CheckpointError(f"Key '{val}' not found.")
 
     @classmethod
-    def get_mode_name(cls, val: Any, default: Any = _SENTINEL):
+    def get_mode_name(cls, val: Any, default: Any = _SENTINEL) -> Any:
         for key, value in cls.__dict__.items():
             if val == value:
                 return key
@@ -43,11 +44,11 @@ class CheckpointTxtBase:
     path: str
     context: Optional[str] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         with open(self.path, 'w', encoding='utf-8') as f:
             f.write(self.context or '')
 
-    def punch(self, context: str, mode: Union[str, TxtPunchMode]='a'):
+    def punch(self, context: str, mode: Union[str, TxtPunchMode] = 'a') -> None:
         mode = TxtPunchMode.check(mode)
         mode_name = TxtPunchMode.get_mode_name(mode)
 
@@ -65,14 +66,14 @@ class CheckpointDictBase:
     path: str
     context: Dict[str, Any] = field(default_factory=dict)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.dump()
 
-    def punch(self, context: Dict[str, Any]):
+    def punch(self, context: Dict[str, Any]) -> None:
         self.context.update(context)
         self.dump()
 
-    def dump(self):
+    def dump(self) -> None:
         pass
 
 @dataclass
@@ -80,19 +81,19 @@ class CheckpointListBase:
     path: str
     context: List[Any] = field(default_factory=list)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.dump()
 
-    def punch(self, context: Any):
+    def punch(self, context: Any) -> None:
         self.context.append(context)
         self.dump()
 
-    def dump(self):
+    def dump(self) -> None:
         pass
 
 @dataclass
 class CheckpointJsonBase:
-    def __new__(cls, path: str, context: Union[Dict[str, Any], List[Any]] = None):
+    def __new__(cls, path: str, context: Optional[Union[Dict[str, Any], List[Any]]] = None) -> Any:
         if context is None:
             context = []
 
@@ -108,7 +109,7 @@ class CheckpointJsonBase:
         return instance
 
     @staticmethod
-    def _dump_json(instance):
+    def _dump_json(instance: Any) -> None:
         pathlib.Path(instance.path).parent.mkdir(parents=True, exist_ok=True)
         try:
             with open(instance.path, 'w', encoding='utf-8') as f:
@@ -118,7 +119,7 @@ class CheckpointJsonBase:
 
 @dataclass
 class CheckpointInfo:
-    def __new__(cls, path: str, context: Dict[str, Any] = None):
+    def __new__(cls, path: str, context: Optional[Dict[str, Any]] = None) -> Any:
         _base_context = {
             'create_datetime': datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             **platform.uname()._asdict()
@@ -128,37 +129,37 @@ class CheckpointInfo:
 
 @dataclass
 class CheckpointConfig:
-    def __new__(cls, path: str, context: Union[Dict[str, Any], List[Any]] = None):
+    def __new__(cls, path: str, context: Optional[Union[Dict[str, Any], List[Any]]] = None) -> Any:
         return CheckpointJsonBase(path, context)
 
 @dataclass
 class CheckpointLogs:
-    def __new__(cls, path: str, context: Union[Dict[str, Any], List[Any]] = None):
+    def __new__(cls, path: str, context: Optional[Union[Dict[str, Any], List[Any]]] = None) -> Any:
         return CheckpointTxtBase(path, context)
 
 @dataclass
 class CheckpointMessages:
-    def __new__(cls, path: str, context: Union[Dict[str, Any], List[Any]] = None):
+    def __new__(cls, path: str, context: Optional[Union[Dict[str, Any], List[Any]]] = None) -> Any:
         return CheckpointJsonBase(path, context)
 
 @dataclass
 class CheckpointRawMessages:
-    def __new__(cls, path: str, context: Union[Dict[str, Any], List[Any]] = None):
+    def __new__(cls, path: str, context: Optional[Union[Dict[str, Any], List[Any]]] = None) -> Any:
         return CheckpointJsonBase(path, context)
 
 @dataclass
 class CheckpointToDosList:
-    def __new__(cls, path: str, context: Union[Dict[str, Any], List[Any]] = None):
+    def __new__(cls, path: str, context: Optional[Union[Dict[str, Any], List[Any]]] = None) -> Any:
         return CheckpointJsonBase(path, context)
 
 class Checkpoint:
 
     def __init__(
         self,
-        root:str=None,
-        force_reinit_if_existence:bool=True,
-        logger=None,
-    ):
+        root: Optional[str] = None,
+        force_reinit_if_existence: bool = True,
+        logger: Optional[logging.Logger] = None,
+    ) -> None:
         self.logger = logger
         self.init_checkpoint(root, force_reinit_if_existence)
 
@@ -186,7 +187,11 @@ class Checkpoint:
             path = self.checkpoint_root / 'todos.json',
         )
 
-    def init_checkpoint(self, root:str=None, force_reinit_if_existence:bool=True):
+    def init_checkpoint(
+        self,
+        root: Optional[str] = None,
+        force_reinit_if_existence: bool = True,
+    ) -> None:
         if not root:
             root = f'checkpoint_{datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}'
         self.checkpoint_root = pathlib.Path(root)
@@ -205,25 +210,30 @@ class Checkpoint:
             self.logger.info(f"Create checkpoint directory: {self.checkpoint_root}")
         self.checkpoint_root.mkdir(parents=True, exist_ok=True)
 
-    def punch_info(self, *args, **kwargs):
+    def punch_info(self, *args, **kwargs) -> None:
         self.info.punch(*args, **kwargs)
 
-    def punch_log(self, *args, **kwargs):
+    def punch_log(self, *args, **kwargs) -> None:
         self.logs.punch(*args, **kwargs)
 
-    def punch_message(self, *args, **kwargs):
+    def punch_message(self, *args: Any, **kwargs: Any) -> None:
         self.messages.punch(*args, **kwargs)
 
-    def punch_raw_message(self, *args, **kwargs):
+    def punch_raw_message(self, *args, **kwargs) -> None:
         self.raw_messages.punch(*args, **kwargs)
 
-    def punch_todos(self, *args, **kwargs):
+    def punch_todos(self, *args, **kwargs) -> None:
         self.todos.punch(*args, **kwargs)
 
-    def __enter__(self):
+    def __enter__(self) -> "Checkpoint":
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Any,
+    ) -> None:
         if exc_type:
             self.punch_log(f"Error occurred: {exc_val}")
 

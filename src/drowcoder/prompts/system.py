@@ -9,7 +9,7 @@ from .instructions import InstructionFactory, InstructionType
 
 @dataclass
 class SystemPromptFormatDetails:
-    rules: Dict = field(default_factory=dict)
+    rules: Dict[str, Any] = field(default_factory=dict)
 
 class SystemPromptInstruction:
 
@@ -43,7 +43,7 @@ class SystemPromptInstruction:
         rules: Optional[str] = None,
         instruction: Optional[Union[str, InstructionType]] = None,
         return_details: bool = False,
-        **kwargs
+        **kwargs,
     ) -> Union[str, Tuple[str, 'SystemPromptFormatDetails']]:
         """
         Format system prompt template.

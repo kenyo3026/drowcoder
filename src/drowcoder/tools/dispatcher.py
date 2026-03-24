@@ -36,9 +36,9 @@ class Dispatcher:
             Dict[str, Any],
         ] = None,
         logger: Optional[logging.Logger] = None,
-        callback: Optional[Callable] = None,
+        callback: Optional[Callable[..., Any]] = None,
         checkpoint: Optional[Union[str, pathlib.Path]] = None,
-    ):
+    ) -> None:
         self.tool_configs = tool_configs
         self.mcp_configs = mcp_configs
 
@@ -59,10 +59,10 @@ class Dispatcher:
             checkpoint = checkpoint,
         )
 
-    def apply_tools(self, *args, **kwargs):
+    def apply_tools(self, *args, **kwargs) -> None:
         return self.tool_dispatcher.apply_tools(*args, **kwargs)
 
-    def apply_mcps(self, *args, **kwargs):
+    def apply_mcps(self, *args, **kwargs) -> None:
         return self.mcp_dispatcher.apply_mcps(*args, **kwargs)
 
     def expose_descs(self) -> List[Dict[str, Any]]:

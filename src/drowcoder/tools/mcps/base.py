@@ -252,13 +252,13 @@ class MCPBaseClient(ABC):
 
     def __init__(
         self,
-        server_name: str = None,
+        server_name: Optional[str] = None,
         logger: Optional[logging.Logger] = None,
-        callback: Optional[Callable] = None,
+        callback: Optional[Callable[..., Any]] = None,
         checkpoint: Optional[Union[str, Path]] = None,
         auto_initialize: bool = True,
         **kwargs,
-    ):
+    ) -> None:
         """
         Initialize the MCP client with configuration.
 
@@ -319,9 +319,9 @@ class MCPBaseClient(ABC):
     def is_connected(self) -> bool:
         """Check if the client is connected to the MCP server"""
         # TODO: Will be implemented in upcoming version
-        return
+        return False
 
-    def _run_async(self, coro):
+    def _run_async(self, coro: Any) -> Any:
         """
         Safely run async coroutine in sync context.
         Handles both cases: with and without existing event loop.
@@ -358,7 +358,7 @@ class MCPBaseClient(ABC):
             return asyncio.run(coro)
 
     @abstractmethod
-    def with_session(self, func: Callable) -> Callable:
+    def with_session(self, func: Callable[..., Any]) -> Callable[..., Any]:
         """
         Decorator: Automatically handles MCP session creation and cleanup
 
@@ -368,10 +368,10 @@ class MCPBaseClient(ABC):
         ...
 
     @abstractmethod
-    async def _list_tools_async(self, dump_to_openai_desc: bool = False):
+    async def _list_tools_async(self, dump_to_openai_desc: bool = False) -> List[Dict[str, Any]]:
         ...
 
-    def list_tools(self, dump_to_openai_desc: bool = False):
+    def list_tools(self, dump_to_openai_desc: bool = False) -> List[Dict[str, Any]]:
         """
         List all available tools from the MCP server (synchronous).
 
@@ -384,10 +384,10 @@ class MCPBaseClient(ABC):
         return self._run_async(self._list_tools_async(dump_to_openai_desc))
 
     @abstractmethod
-    async def _call_tool_async(self, tool_name: str, **arguments):
+    async def _call_tool_async(self, tool_name: str, **arguments: Any) -> Any:
         ...
 
-    def call_tool(self, tool_name: str, **arguments):
+    def call_tool(self, tool_name: str, **arguments: Any) -> Any:
         """
         Call a specific tool with given arguments (synchronous).
 

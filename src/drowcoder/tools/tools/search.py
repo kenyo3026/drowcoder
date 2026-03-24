@@ -82,7 +82,7 @@ class PathTreeNodeForSearchTool(PathTreeNode):
     Inherits from PathTreeNode and adds metadata storage capability for search results.
     """
 
-    def __init__(self, name, is_leaf=False, meta:dict=None):
+    def __init__(self, name: str, is_leaf: bool = False, meta: Optional[dict] = None) -> None:
         """
         Initialize a PathTreeNodeForSearchTool.
 
@@ -94,7 +94,7 @@ class PathTreeNodeForSearchTool(PathTreeNode):
         super().__init__(name=name, is_leaf=is_leaf)
         self.meta = meta or {}
 
-    def add_child(self, child_name, is_leaf=False, meta:dict=None):
+    def add_child(self, child_name: str, is_leaf: bool = False, meta: Optional[dict] = None) -> "PathTreeNodeForSearchTool":
         """
         Add a child node to this node.
 
@@ -119,7 +119,7 @@ class PathTreeForSearchTool(PathTree):
     and provides specialized formatting for search results.
     """
 
-    def add_path(self, path_meta:FileMatchMeta):
+    def add_path(self, path_meta: FileMatchMeta) -> None:
         """
         Add a file path with search results to the tree.
 
@@ -143,11 +143,11 @@ class PathTreeForSearchTool(PathTree):
 
     def format(
         self,
-        node=None,
-        prefix="",
-        only_filename:bool=False,
-        max_matches_per_file:int=10,
-    ):
+        node: Optional["PathTreeNodeForSearchTool"] = None,
+        prefix: str = "",
+        only_filename: bool = False,
+        max_matches_per_file: int = 10,
+    ) -> str:
         """
         Format the tree as a string with search results.
 

@@ -92,7 +92,7 @@ class BashTool(BaseTool):
     """
     name = TOOL_NAME
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         """Initialize BashTool."""
         super().__init__(**kwargs)
 

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List
+from typing import Any, Dict, List
 
 from config_morpher import ConfigMorpher
 
@@ -11,14 +11,18 @@ class ModelRoleType:
 
 
 class ModelDispatcher:
-    def __init__(self, models:List[dict], morph:bool=True):
+    def __init__(
+        self,
+        models: List[Dict[str, Any]],
+        morph: bool = True,
+    ) -> None:
         self.models = models
         self.morph =  morph
         self.for_chatcompletions = {'models': []}
         self.for_postcompletions = {'models': []}
         self.dispatch(morph=morph)
 
-    def dispatch(self, morph:bool=True):
+    def dispatch(self, morph: bool = True) -> None:
         for model in self.models:
             # Use 'or' instead of get() default to handle None and empty list cases
             # get() only uses default when key is missing, not when value is None/[]

@@ -5,7 +5,7 @@ import subprocess
 import json
 import yaml
 from dataclasses import dataclass
-from typing import Union
+from typing import Dict, Any, Optional, Union
 
 
 @dataclass(frozen=True)
@@ -15,7 +15,7 @@ class Platform:
     LINUX   : str = 'Linux'
 
     @staticmethod
-    def get_default_editor():
+    def get_default_editor() -> str:
         """Get platform-specific default editor"""
         system = platform.system()
         if system == Platform.WINDOWS:
@@ -32,7 +32,7 @@ class Editor:
     NANO    : str = 'nano'
 
     @staticmethod
-    def get_preferred():
+    def get_preferred() -> str:
         """Get the preferred text editor based on environment and platform
 
         Priority order (following Unix conventions):
@@ -66,7 +66,7 @@ class ConfigMain:
     DEFAULT_CONFIG_PATH = pathlib.Path.home() / '.drowcoder' / 'config.yaml'
 
     @staticmethod
-    def _load_config_file(config_path: pathlib.Path) -> dict:
+    def _load_config_file(config_path: pathlib.Path) -> Dict[str, Any]:
         """Load configuration from YAML or JSON file.
 
         Args:
@@ -93,7 +93,7 @@ class ConfigMain:
             )
 
     @staticmethod
-    def set(config_path: Union[str, pathlib.Path]):
+    def set(config_path: Union[str, pathlib.Path]) -> int:
         """Set default configuration file by copying content to ~/.drowcoder/config.yaml"""
         config_path = pathlib.Path(config_path).resolve()
 
@@ -143,7 +143,7 @@ class ConfigMain:
         return 0
 
     @staticmethod
-    def edit(config_path: Union[str, pathlib.Path]):
+    def edit(config_path: Union[str, pathlib.Path]) -> int:
         """Open config file in editor"""
         config_path = pathlib.Path(config_path).resolve()
 
@@ -173,7 +173,7 @@ class ConfigMain:
             return 1
 
     @staticmethod
-    def show(config_path: Union[str, pathlib.Path, None] = None):
+    def show(config_path: Optional[Union[str, pathlib.Path]] = None) -> int:
         """Display configuration file content.
 
         If no path provided, shows the default config at ~/.drowcoder/config.yaml
@@ -202,7 +202,7 @@ class ConfigMain:
             return 1
 
     @staticmethod
-    def validate(config_path: Union[str, pathlib.Path]):
+    def validate(config_path: Union[str, pathlib.Path]) -> int:
         """Validate configuration file (supports YAML and JSON)"""
         config_path = pathlib.Path(config_path).resolve()
 

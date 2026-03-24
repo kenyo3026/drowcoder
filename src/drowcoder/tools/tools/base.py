@@ -118,11 +118,11 @@ class ToolResponse:
                     f"['dict', 'str', 'pretty_str']"
                 )
 
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, Any]:
         """Convert ToolResponse to dictionary."""
         return asdict(self)
 
-    def to_str(self):
+    def to_str(self) -> str:
         """Convert ToolResponse to string representation."""
         _dict = self.to_dict()
         return str(_dict)
@@ -170,11 +170,11 @@ class BaseTool(ABC):
     def __init__(
         self,
         logger: Optional[logging.Logger] = None,
-        callback: Optional[Callable] = None,
+        callback: Optional[Callable[..., Any]] = None,
         checkpoint: Optional[Union[str, Path]] = None,
         auto_initialize: bool = True,
         **kwargs
-    ):
+    ) -> None:
         """
         Initialize the tool with configuration.
 
@@ -220,7 +220,7 @@ class BaseTool(ABC):
         filter_empty_fields: bool = True,
         filter_metadata_fields: bool = True,
         **kwargs,
-    ) -> ToolResponse:
+    ) -> Any:
         """
         Execute the tool's main functionality.
 

@@ -1,7 +1,7 @@
 import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import List, Dict, Any, Union
+from typing import Any, Dict, List, Optional, Union
 
 from rich.console import Console
 from rich.panel import Panel
@@ -71,11 +71,13 @@ class CompactMessageVerboser(BaseMessageVerboser):
 class PrettyMessageVerboser(BaseMessageVerboser):
     """Pretty formatted message verboser with colors and structure"""
 
-    def __init__(self,
-                 max_content_length: int = 1000,
-                 max_tool_result_length: int = 500,
-                 max_arg_length: int = 100,
-                 show_colors: bool = True):
+    def __init__(
+        self,
+        max_content_length: int = 1000,
+        max_tool_result_length: int = 500,
+        max_arg_length: int = 100,
+        show_colors: bool = True,
+    ) -> None:
         self.max_content_length = max_content_length
         self.max_tool_result_length = max_tool_result_length
         self.max_arg_length = max_arg_length
@@ -177,7 +179,7 @@ class PrettyMessageVerboser(BaseMessageVerboser):
         arguments: Union[str, dict],
         prefix_pattern: str,
         prefix_indent: str,
-    ):
+    ) -> None:
         try:
             if isinstance(arguments, str):
                 arguments = json.loads(arguments)
@@ -203,13 +205,15 @@ class PrettyMessageVerboser(BaseMessageVerboser):
 class RichPrettyMessageVerboser(BaseMessageVerboser):
     """Rich-based pretty message verboser with enhanced visual appeal"""
 
-    def __init__(self,
-                 max_content_length: int = 1000,
-                 max_tool_result_length: int = 500,
-                 max_arg_length: int = 100,
-                 console: Console = None,
-                 show_nested: bool = True,
-                 debug_mode: bool = False):
+    def __init__(
+        self,
+        max_content_length: int = 1000,
+        max_tool_result_length: int = 500,
+        max_arg_length: int = 100,
+        console: Optional[Console] = None,
+        show_nested: bool = True,
+        debug_mode: bool = False,
+    ) -> None:
         self.max_content_length = max_content_length
         self.max_tool_result_length = max_tool_result_length
         self.max_arg_length = max_arg_length

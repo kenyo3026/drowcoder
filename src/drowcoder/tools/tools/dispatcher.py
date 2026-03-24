@@ -42,7 +42,7 @@ class ToolInstance:
     """
     name: str
     desc: Dict[str, Any]
-    tool: Callable
+    tool: Callable[..., Any]
     type: str
     enabled: bool = True
     registered: bool = False
@@ -53,7 +53,7 @@ class ToolDispatcherConfig:
     paths: Union[None, str, pathlib.Path, List[Union[str, pathlib.Path]]] = None
     root: Union[None, str, pathlib.Path] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Normalize configuration paths with optional root directory."""
         # Handle config paths and root with fallback logic:
         # 1. Both None: use defaults
@@ -177,9 +177,9 @@ class ToolDispatcher(ToolDispatcherConfigLoader):
         configs: Union[None, str, pathlib.Path, List[Union[str, pathlib.Path]], List[Dict[str, Any]]] = None,
         config_root: Union[None, str, pathlib.Path] = None,
         logger: Optional[logging.Logger] = None,
-        callback: Optional[Callable] = None,
+        callback: Optional[Callable[..., Any]] = None,
         checkpoint: Optional[Union[str, pathlib.Path]] = None,
-    ):
+    ) -> None:
         """
         Initialize tool dispatcher with configuration.
 
@@ -206,8 +206,8 @@ class ToolDispatcher(ToolDispatcherConfigLoader):
 
         self.current_module = sys.modules[__name__]
 
-        self.default_tools :Dict[str, ToolInstance] = {}
-        self.tools         :Dict[str, ToolInstance] = {}
+        self.default_tools = {}
+        self.tools = {}
 
         # Store initial configuration for later reloading
         self._init_configs = configs
@@ -347,13 +347,13 @@ class ToolDispatcher(ToolDispatcherConfigLoader):
 
         return tool_instance
 
-    def disable_tools(self, tool_names: List[str]):
+    def disable_tools(self, tool_names: List[str]) -> None:
         """Disable specific tools by name"""
         for tool_name in tool_names:
             if tool_name in self.tools:
                 self.tools[tool_name].enabled = False
 
-    def enable_tools(self, tool_names: List[str]):
+    def enable_tools(self, tool_names: List[str]) -> None:
         """Enable specific tools by name"""
         for tool_name in tool_names:
             if tool_name in self.tools:
@@ -363,6 +363,6 @@ class ToolDispatcher(ToolDispatcherConfigLoader):
         """Get OpenAI tool descriptions of all enabled tools"""
         return [instance.desc for instance in self.tools.values() if instance.enabled]
 
-    def get_tool_funcs(self) -> Dict[str, Callable]:
+    def get_tool_funcs(self) -> Dict[str, Callable[..., Any]]:
         """Get functions of all enabled tools"""
         return {name: instance.tool for name, instance in self.tools.items() if instance.enabled}

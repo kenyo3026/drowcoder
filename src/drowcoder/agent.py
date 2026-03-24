@@ -40,15 +40,15 @@ class ToolCallResponse:
     tool_call_id       :str
     tool_call_group_id :str
     name               :str
-    arguments          :dict
+    arguments          :Dict[str, Any]
     content            :str
     captured_logs      :str = ""
 
-    def form_content(self):
+    def form_content(self) -> str:
         return '\n'.join([f'**{key}:**\n{value}' for key, value in self.__dict__.items()
                           if not key == 'role'])
 
-    def form_message(self):
+    def form_message(self) -> Dict[str, Any]:
         message = self.__dict__
         # message['content'] = self.form_content()
         return message
@@ -58,20 +58,20 @@ class DrowAgent:
 
     def __init__(
         self,
-        workspace: str = None,
+        workspace: Optional[str] = None,
         instruction: Optional[str] = None,
         tools: Optional[List[Dict[str, Any]]] = None,
         mcps: Optional[Dict[str, Any]] = None,
         rules: Optional[Union[str, pathlib.Path, List[Union[str, pathlib.Path]]]] = None,
         disable_rules: bool = False,
-        keep_last_k_tool_call_contexts:int = 5,
+        keep_last_k_tool_call_contexts: int = 5,
         logger: Optional[logging.Logger] = None,
-        checkpoint: Union[str, Checkpoint] = None,
+        checkpoint: Optional[Union[str, Checkpoint]] = None,
         verbose_style: Union[str, VerboseStyle] = VerboseStyle.RICH_PRETTY,
         max_iterations: int = 50,
         max_iterations_without_call_tools: int = 3,
-        **completion_kwargs
-    ):
+        **completion_kwargs: Any
+    ) -> None:
         """
         Initialize DrowAgent with workspace, tools, and configuration.
 
@@ -114,9 +114,11 @@ class DrowAgent:
             self.setup_workspace(workspace)
             self.setup_rules(rules, disable_rules)
 
-            self.checkpoint = checkpoint
-            if isinstance(self.checkpoint, str) or self.checkpoint is None:
-                self.checkpoint = Checkpoint(self.checkpoint)
+            checkpoint_obj = checkpoint
+            if isinstance(checkpoint_obj, str) or checkpoint_obj is None:
+                self.checkpoint = Checkpoint(checkpoint_obj)
+            else:
+                self.checkpoint = checkpoint_obj
 
             # Initialize tool dispatcher with default builtin tools
             # When configs=None, ToolDispatcher automatically loads DEFAULT_TOOL_CONFIGS
@@ -186,7 +188,7 @@ class DrowAgent:
                 }
             )
 
-    def _resolve_verbose_style(self, verbose_style):
+    def _resolve_verbose_style(self, verbose_style: Union[str, VerboseStyle]) -> str:
         """Convert verbose_style to string format"""
         if isinstance(verbose_style, str):
             if VerboseStyle.is_valid(verbose_style):
@@ -199,7 +201,7 @@ class DrowAgent:
         else:
             return verbose_style
 
-    def init(self):
+    def init(self) -> None:
         if self.system_instruction:
             message = {"role": AgentRole.SYSTEM, "content": self.system_instruction}
             self.messages.append(message)
@@ -207,26 +209,26 @@ class DrowAgent:
             self.checkpoint.messages.punch(message)
             self.checkpoint.raw_messages.punch(message)
 
-    def setup_workspace(self, workspace: str):
-        workspace = pathlib.Path(workspace or os.getcwd()).resolve()
+    def setup_workspace(self, workspace: Optional[str]) -> None:
+        workspace_path = pathlib.Path(workspace or os.getcwd()).resolve()
 
-        if not workspace.exists():
-            raise ValueError(f"Workspace does not exist: {workspace}")
+        if not workspace_path.exists():
+            raise ValueError(f"Workspace does not exist: {workspace_path}")
 
-        if not workspace.is_dir():
-            raise ValueError(f"Workspace is not a directory: {workspace}")
+        if not workspace_path.is_dir():
+            raise ValueError(f"Workspace is not a directory: {workspace_path}")
 
         # Check I/O permission
-        if not os.access(workspace, os.R_OK | os.W_OK):
-            raise PermissionError(f"No read/write access to workspace: {workspace}")
+        if not os.access(workspace_path, os.R_OK | os.W_OK):
+            raise PermissionError(f"No read/write access to workspace: {workspace_path}")
 
-        self.workspace = workspace
+        self.workspace = workspace_path
 
     def setup_rules(
         self,
         rules: Optional[Union[str, pathlib.Path, List[Union[str, pathlib.Path]]]] = None,
         disable_rules: bool = False
-    ):
+    ) -> None:
         if disable_rules:
             # When rules are disabled, use empty list
             self.rules = []
@@ -246,7 +248,7 @@ class DrowAgent:
                         f"got {type(rules).__name__}"
                     )
 
-    def call_tool(self, tool_calls:List[litellm.types.utils.ChatCompletionMessageToolCall]):
+    def call_tool(self, tool_calls: List[litellm.types.utils.ChatCompletionMessageToolCall]) -> None:
         tool_call_group_id = generate_unique_id(length=8)
         self.tool_call_group_ids.append(tool_call_group_id)
 
@@ -297,7 +299,7 @@ class DrowAgent:
             self.checkpoint.raw_messages.punch(message)
             self.verbose_latest_message()
 
-    def receive(self, content:str=None):
+    def receive(self, content: Optional[str] = None) -> None:
         if not content:
             while True:
                 content = input('Input a message: ').strip()
@@ -317,7 +319,7 @@ class DrowAgent:
         self.checkpoint.raw_messages.punch(message)
         self.verbose_latest_message()
 
-    def complete(self, **completion_kwargs):
+    def complete(self, **completion_kwargs: Any) -> None:
         # Increment iteration counter
         self.iteration_so_far += 1
 
@@ -387,13 +389,13 @@ class DrowAgent:
         # Agent will keep thinking until it calls attempt_completion or hits max_iterations
         self.complete()
 
-    def verbose_latest_message(self):
+    def verbose_latest_message(self) -> None:
         if not self.messages:
             return
         message = self.messages[-1]
         self.verboser.verbose_message(message)
 
-    def _is_task_completed(self, message) -> bool:
+    def _is_task_completed(self, message: Any) -> bool:
         """
         Check if the agent has marked the task as completed.
 
@@ -414,12 +416,17 @@ class DrowAgent:
             for tool_call in message.tool_calls
         )
 
-    def _prepare_messages(self, messages, **kwargs):
+    def _prepare_messages(self, messages: List[Dict[str, Any]], **kwargs) -> List[Dict[str, Any]]:
         if self.tool_call_group_ids:
             messages = self._prepare_tool_messages(messages, **kwargs)
         return messages
 
-    def _prepare_tool_messages(self, messages, last_k_tool_call_group:int=1, **kwargs):
+    def _prepare_tool_messages(
+        self,
+        messages: List[Dict[str, Any]],
+        last_k_tool_call_group: int = 1,
+        **kwargs
+    ) -> List[Dict[str, Any]]:
         """
         Replace tool message content with placeholder for old tool call groups.
         Keeps the most recent k tool call groups with full content.

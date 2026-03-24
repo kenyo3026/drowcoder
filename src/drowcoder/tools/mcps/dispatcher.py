@@ -33,11 +33,11 @@ class MCPInstance:
     registered     : bool = False
     runtime        : Optional[ToolRuntimeDict] = field(default_factory=dict)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.client is None:
             self.update_client(auto_initialize=False)
 
-    def update_client(self, config: Optional[Dict[str, Any]] = None, auto_initialize: bool = True):
+    def update_client(self, config: Optional[Dict[str, Any]] = None, auto_initialize: bool = True) -> None:
         """
         Update or create MCP client.
 
@@ -83,7 +83,7 @@ class MCPInstance:
             self.client = None
             self.descs = None
 
-    async def initialize_async(self):
+    async def initialize_async(self) -> None:
         """
         Asynchronously initialize the MCP client.
 
@@ -102,7 +102,7 @@ class MCPDispatcherConfig:
     paths: Union[None, str, pathlib.Path, List[Union[str, pathlib.Path]]] = None
     root: Union[None, str, pathlib.Path] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Normalize configuration paths with optional root directory."""
         # Handle config paths and root with fallback logic:
         # 1. Both None: use defaults
@@ -217,9 +217,9 @@ class MCPDispatcher(MCPDispatcherConfigLoader):
         configs: Union[None, str, pathlib.Path, List[Union[str, pathlib.Path]], Dict[str, Any]] = None,
         config_root: Union[None, str, pathlib.Path] = None,
         logger: Optional[logging.Logger] = None,
-        callback: Optional[Callable] = None,
+        callback: Optional[Callable[..., Any]] = None,
         checkpoint: Optional[Union[str, pathlib.Path]] = None,
-    ):
+    ) -> None:
         """
         Initialize MCP dispatcher with configuration file.
 
@@ -231,8 +231,8 @@ class MCPDispatcher(MCPDispatcherConfigLoader):
         self.callback = callback
         self.checkpoint = checkpoint
 
-        self.default_mcps :Dict[str, MCPInstance] = {}
-        self.mcps         :Dict[str, MCPInstance] = {}
+        self.default_mcps = {}
+        self.mcps = {}
 
         # Store initial configuration for later reloading
         self._init_configs = configs
@@ -346,7 +346,7 @@ class MCPDispatcher(MCPDispatcherConfigLoader):
 
         return self.mcps
 
-    def _parallel_initialize(self, instances: List[MCPInstance]):
+    def _parallel_initialize(self, instances: List[MCPInstance]) -> None:
         """
         Initialize multiple MCP instances in parallel using asyncio.gather.
 
@@ -356,7 +356,7 @@ class MCPDispatcher(MCPDispatcherConfigLoader):
         import time
         start_time = time.perf_counter()
 
-        async def init_all():
+        async def init_all() -> None:
             tasks = [instance.initialize_async() for instance in instances]
             results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -376,13 +376,13 @@ class MCPDispatcher(MCPDispatcherConfigLoader):
         duration = (time.perf_counter() - start_time) * 1000
         self.logger.debug(f"Parallel initialization of {len(instances)} MCP instances completed in {duration:.2f}ms")
 
-    def disable_mcps(self, mcp_names: List[str]):
+    def disable_mcps(self, mcp_names: List[str]) -> None:
         """Disable specific MCP servers by name"""
         for mcp_name in mcp_names:
             if mcp_name in self.mcps:
                 self.mcps[mcp_name].enabled = False
 
-    def enable_mcps(self, mcp_names: List[str]):
+    def enable_mcps(self, mcp_names: List[str]) -> None:
         """Enable specific MCP servers by name"""
         for mcp_name in mcp_names:
             if mcp_name in self.mcps:
@@ -396,7 +396,7 @@ class MCPDispatcher(MCPDispatcherConfigLoader):
             for desc in (instance.descs or [])
         ]
 
-    def get_mcp_funcs(self) -> Dict[str, Callable]:
+    def get_mcp_funcs(self) -> Dict[str, Callable[..., Any]]:
         """Get tool functions from all enabled MCP servers"""
         return {
             desc['function']['name']: partial(
@@ -406,10 +406,9 @@ class MCPDispatcher(MCPDispatcherConfigLoader):
             for desc in (instance.descs or [])
         }
 
-    def get_mcp_clients(self) -> Dict[str, Callable]:
-        """Get functions of all enabled tools"""
-        # return {name: instance.tool for name, instance in self.tools.items() if instance.enabled}
+    def get_mcp_clients(self) -> Dict[str, Union[MCPStreamableHTTPClient, MCPStdioClient]]:
+        """Get clients of all enabled MCP servers"""
         return {
-            name:instance.client for name, instance in self.mcps.items()
-            if instance.enabled
+            name: instance.client for name, instance in self.mcps.items()
+            if instance.enabled and instance.client is not None
         }
