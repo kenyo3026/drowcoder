@@ -67,6 +67,7 @@ Documentation = "https://github.com/kenyo3026/drowcoder#readme"
 
 [project.scripts]
 drowcoder = "drowcoder.cli:main"
+drowcoder-dev = "drowcoder.develop:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
